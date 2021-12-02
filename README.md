@@ -27,8 +27,15 @@ cd data
 python get_data.py --dataset [nyt10, nyt10_570k, wiki_distant]      # nyt10 before nyt10_570k for sharing file
 
 # Pre-process the data
-python preprocess.py --max_sent_len 50 --lowercase --max_bag_size 500 --dataset [nyt10, nyt10_570k, wiki_distant]
+python preprocess.py --max_sent_len 50 --lowercase --max_bag_size 500 --path LANG/[nyt10, nyt10_570k, wiki_distant]  --dataset [nyt10, nyt10_570k, wiki_distant]
+
+```
+
+### KB Pre-processing
+To get the Knowledge Base prior, we need to get and train the KB embeddings.
+```bath
+cd data
 
 # To get the KB
-TBD
+
 ```
