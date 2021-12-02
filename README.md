@@ -21,5 +21,14 @@ unzip glove.6B.zip
 
 ### Dataset Pre-processing
 ```bath
+cd data
 
+# To get the data
+python get_data.py --dataset [nyt10, nyt10_570k, wiki_distant]      # nyt10 before nyt10_570k for sharing file
+
+# Pre-process the data
+python preprocess.py --max_sent_len 50 --lowercase --max_bag_size 500 --dataset [nyt10, nyt10_570k, wiki_distant]
+
+# To get the KB
+TBD
 ```
