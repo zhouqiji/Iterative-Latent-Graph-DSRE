@@ -2,7 +2,7 @@
 Code for the paper: Relation Extraction by Constrained Latent Graph
 
 ## Prerequisites
-We follow the pre-processing processes by [dsre-vae](https://github.com/fenchri/dsre-vae). 
+We follow the pre-processing processes with [dsre-vae](https://github.com/fenchri/dsre-vae). 
 ### Environment
 ```bash
 conda create -n CLG python=3.9
