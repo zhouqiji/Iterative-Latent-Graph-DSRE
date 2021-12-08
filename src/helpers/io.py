@@ -139,6 +139,8 @@ def setup_log(params, folder_name=None, mode='train'):
     Setup .log file to record training process and results.
     Args:
         params (dict): model parameters
+        folder_name: experiment folder name
+        mode: 'train', 'test'...
     Returns:
         model_folder (str): model directory
     """
