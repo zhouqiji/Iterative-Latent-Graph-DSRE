@@ -5,7 +5,7 @@ from collections import OrderedDict
 
 def load_pretrained_embeds(pretrain_embeds_file, embedding_dim):
     pretrained = {}
-    with open(pretrain_embeds_file, 'r') as infile:
+    with open(pretrain_embeds_file, 'r', encoding='UTF-8') as infile:
         for line in infile:
             line = line.rstrip().split(' ')
             word, vec = line[0], list(map(float, line[1:]))

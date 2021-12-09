@@ -15,7 +15,7 @@ mpl.use('Agg')
 
 
 def load_config(file):
-    with open(file, 'r') as stream:
+    with open(file, 'r', encoding='UTF-8') as stream:
         cfg = yaml.load(stream, Loader=yaml.FullLoader)
     return cfg
 
@@ -156,7 +156,7 @@ def setup_log(params, folder_name=None, mode='train'):
         os.makedirs(model_folder)
     log_file = os.path.join(model_folder, mode + '.log')
 
-    f = open(log_file, 'w')
+    f = open(log_file, 'w', encoding='UTF-8')
     sys.stdout = Tee(sys.stdout, f)
     return model_folder, experiment_name
 
