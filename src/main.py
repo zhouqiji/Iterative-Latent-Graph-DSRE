@@ -7,7 +7,10 @@ from helpers.vocabs import *
 from helpers.datasets import BagREDataset
 from torch.utils.data import DataLoader
 from helpers.collates import *
+
 import torch
+from bag_trainer import Trainer
+from model.GraphNet import GraphNet as Target_Model
 
 
 def set_seed(seed):
@@ -75,11 +78,12 @@ def load_trainer(train_loader_, val_loader_, test_loader_, train_data_, config, 
                       iterators={'train': train_loader_, 'val': val_loader_, 'test': test_loader_},
                       vocabs={'w_vocab': train_data_.word_vocab, 'r_vocab': train_data_.rel_vocab,
                               'p_vocab': train_data_.pos_vocab})
-    #TODO: Impl IDGL base as the target_model
-    trainer.model = trainer.init_model(target_model)
+    # TODO: Impl IDGL base as the target_model
+    trainer.model = trainer.init_model(Target_Model)
     trainer.optimizer = trainer.set_optimizer(trainer.model)
 
     return trainer
+
 
 def main(args):
     config = load_config(args.config)
