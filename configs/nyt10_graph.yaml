@@ -49,3 +49,25 @@ reconstruction: False
 include_positions: True
 priors: False
 freeze_pretrained: False
+
+
+# Graph config
+bignn: False
+graph_module: 'gcn'
+graph_type: 'dynamic'
+graph_learn: True
+graph_metric_type: 'weighted_cosine' # weighted_cosine, kernel, attention, gat_attention, cosine
+graph_skip_conn: 0.1 # GL: 0.1, IGL: 0.1!
+update_adj_ratio: 0.4 # IGL: 0.4!
+graph_include_self: False # cosine-KNN-GCN: False
+graph_learn_regularization: True
+smoothness_ratio: 0.5 # GL: 0.5!
+degree_ratio: 0.01 # GL: 0.01!
+sparsity_ratio: 0.3 # GL: 0.3!
+graph_learn_ratio: 0 # 0
+input_graph_knn_size: 950 # IGL: 950!
+graph_learn_hidden_size: 70 #
+graph_learn_epsilon: 0.3 # GL: 0.3, IGL: 0.3!
+graph_learn_topk: null #
+graph_learn_num_pers: 12 # weighted_cosine: IGL: 12!
+graph_hops: 2

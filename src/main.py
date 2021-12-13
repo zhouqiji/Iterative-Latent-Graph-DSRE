@@ -1,8 +1,4 @@
-import argparse
-import random
-
 from helpers.io import *
-import json
 from helpers.vocabs import *
 from helpers.datasets import BagREDataset
 from torch.utils.data import DataLoader
@@ -10,7 +6,7 @@ from helpers.collates import *
 
 import torch
 from bag_trainer import Trainer
-from model.GraphNet import GraphNet as Target_Model
+from src.GraphNet import GraphNet as Target_Model
 
 
 def set_seed(seed):
