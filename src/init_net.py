@@ -1,5 +1,6 @@
 from modules.embed import *
 from modules.encoders_decoders import *
+from modules.attention import *
 
 
 class BaseNet(nn.Module):
@@ -48,3 +49,7 @@ class BaseNet(nn.Module):
                                         device=self.device,
                                         action='sum')
 
+        # TODO: Selective Attention, Needed?
+        self.sentence_attention = SelectiveAttention(device=self.device)
+        self.dim2rel = nn.Linear(in_features=config['rel_embed_dim'], out_features=len(vocabs['r_vocab']))
+        self.dim2rel.weight = self.r_embed.embedding.weight
