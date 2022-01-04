@@ -51,7 +51,7 @@ priors: False
 freeze_pretrained: False
 
 
-# Graph config
+# IDGL Graph config
 bignn: False
 graph_module: 'gcn'
 graph_type: 'dynamic'
