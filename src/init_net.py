@@ -1,6 +1,7 @@
 from modules.embed import *
 from modules.encoders_decoders import *
 from modules.attention import *
+from modules.ModifiedAdaptiveSoftmax import AdaptiveLogSoftmaxWithLoss
 
 
 class BaseNet(nn.Module):
@@ -53,3 +54,29 @@ class BaseNet(nn.Module):
         self.sentence_attention = SelectiveAttention(device=self.device)
         self.dim2rel = nn.Linear(in_features=config['rel_embed_dim'], out_features=len(vocabs['r_vocab']))
         self.dim2rel.weight = self.r_embed.embedding.weight
+
+        # task loss
+        if self.config['reconstruction']:
+            self.hid2mu = nn.Linear(2 * config['enc_dim'], config['latent_dim'])
+            self.hid2var = nn.Linear(2 * config['enc_dim'], config['latent_dim'])
+            self.latent2hid = nn.Linear(config['latent_dim'], config['dec_dim'])
+
+            self.reduction = nn.Linear(in_features=config['latent_dim'] + 2 * config['enc_dim'],
+                                       out_features=config['rel_embed_dim'],
+                                       bias=False)
+
+            decoder_dim = config['word_embed_dim'] + config['latent_dim']
+            self.lang_decoder = LSTMDecoder(in_features=decoder_dim,
+                                            h_dec_dim=config['dec_dim'],
+                                            layers_num=config['dec_layers'],
+                                            dir2=config['dec_bidirectional'],
+                                            device=self.device,
+                                            action='sum')
+
+            self.reco_loss = AdaptiveLogSoftmaxWithLoss(config['dec_dim'], vocabs['w_vocab'].n_word,
+                                                        cutoffs=[round(vocabs['w_vocab'].n_word / 15),
+                                                                 3 * round(vocabs['w_vocab'].n_word / 15)])
+        else:
+            self.reduction = nn.Linear(in_features=3 * config['enc_dim'],
+                                       out_features=config['rel_embed_dim'],
+                                       bias=False)
