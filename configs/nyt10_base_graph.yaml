@@ -52,10 +52,12 @@ freeze_pretrained: False
 
 
 # Iterative Graph config
+graph_dropout: 0.5
 bignn: False
 graph_module: 'gcn'
 graph_type: 'dynamic'
 graph_learn: True
+graph_batch_norm: True
 graph_metric_type: 'weighted_cosine' # weighted_cosine, kernel, attention, gat_attention, cosine
 graph_skip_conn: 0.1 # GL: 0.1, IGL: 0.1!
 update_adj_ratio: 0.4 # IGL: 0.4!
@@ -70,4 +72,10 @@ graph_learn_hidden_size: 70 #
 graph_learn_epsilon: 0.3 # GL: 0.3, IGL: 0.3!
 graph_learn_topk: null #
 graph_learn_num_pers: 12 # weighted_cosine: IGL: 12!
+graph_learn_hidden_size2: 70 # kernel: 90, attention: 70
+graph_learn_epsilon2: 0 # weighted_cosine: 0
+graph_learn_topk2: null # attn-GCN: 140: 64.1, kernel-GCN: 100
 graph_hops: 2
+graph_out_dim: 256  # Tuning!
+graph_hid_dim: 256
+

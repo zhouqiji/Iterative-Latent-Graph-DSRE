@@ -243,6 +243,8 @@ class GraphNet(BaseNet):
             # sentence representation
             sent_rep = torch.cat([hidden, arg1, arg2], dim=1)
 
+        #TODO: IDGL module
+
         # Sentence per bag
         sent_rep = pad_sequence(torch.split(sent_rep, batch['bag_size'].tolist(), dim=0),
                                 batch_first=True,
