@@ -30,5 +30,6 @@ def create_mask(x, N, device=None):
         x = x.data
     mask = np.zeros((len(x), N))
     for i in range(len(x)):
-        mask[i, x:[i]] = 1
+        mask[i, :x[i]] = 1
+
     return torch.Tensor(mask).to(device)

@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from ..helpers.constants import INF
+from .constants import INF
 
 
 def compute_normalized_laplacian(adj):

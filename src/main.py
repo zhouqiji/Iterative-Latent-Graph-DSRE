@@ -114,6 +114,7 @@ def main(args):
     if config['mode'] == 'train':
         train_loader, val_loader, test_loader, train_data = load_data(word_vocab, prior_mus, config)
         trainer = load_trainer(train_loader, val_loader, test_loader, train_data, config, device)
+        _ = trainer.run()
 
 
 if __name__ == "__main__":

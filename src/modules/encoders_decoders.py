@@ -1,5 +1,4 @@
-from rnn import *
-
+from .rnn import *
 
 class LSTMEncoder(nn.Module):
     def __init__(self, in_features, h_enc_dim, layers_num, dir2, device, action='concat'):

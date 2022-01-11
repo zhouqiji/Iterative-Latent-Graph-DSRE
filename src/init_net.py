@@ -59,6 +59,8 @@ class BaseNet(nn.Module):
         self.dim2rel.weight = self.r_embed.embedding.weight
 
         # task loss
+        self.task_loss = nn.BCEWithLogitsLoss(reduction='none')
+
         if self.config['reconstruction']:
             self.hid2mu = nn.Linear(2 * config['enc_dim'], config['latent_dim'])
             self.hid2var = nn.Linear(2 * config['enc_dim'], config['latent_dim'])

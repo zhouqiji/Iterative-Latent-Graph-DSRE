@@ -66,7 +66,7 @@ class RNNLayer(nn.Module):
                 hidden = self.reorder_hidden(hidden, sorted_i)
 
             # forward
-            packed = pack_padded_sequence(x, lengths_sorted, batch_first=True)
+            packed = pack_padded_sequence(x, lengths_sorted.cpu(), batch_first=True)
             self.rnn.flatten_parameters()
             out_packed, hidden = self.rnn(packed, hidden)
 

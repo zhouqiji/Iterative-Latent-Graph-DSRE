@@ -41,9 +41,7 @@ class EmbedLayer(nn.Module):
                 self.embedding.weight.data[mapping[word], :] = torch.from_numpy(pretrained[word.lower()])
                 found += 1
 
-        print('Assigned {:.2f}% words a pretrained word embeeding\n'.format(found * 100 / len(mapping)))
-        assert (self.embedding.weight[mapping['.']].to('cpu').data.numpy() == pretrained['.'].all(),
-                'ERROR: Embeddings not assigned')
+        print('Assigned {:.2f}% words a pretrained word embedding\n'.format(found * 100 / len(mapping)))
 
     def forward(self, xs):
         """

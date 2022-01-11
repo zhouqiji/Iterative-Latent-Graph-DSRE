@@ -203,17 +203,13 @@ class GraphNet(BaseNet):
 
         x_vec = self.in_drop(x_vec)
 
-        # TODO: IDGL module
-        # TODO:  lang_encoder in IDGL
-        graph_out = self.graph_encoder(x_vec, batch['sent_len'])
-
-        # LSTM Encoder
-        enc_out, (hidden, cell_state) = self.lang_encoder(x_vec, len_=batch['sent_len'])
+        # Graph Encoder
+        graph_out, graph_hid = self.graph_encoder(x_vec, batch['sent_len'])
 
         ##########################
         # Argument Representation
         ##########################
-        arg1, arg2 = self.merge_tokens(enc_out, batch['mentions'])  # contextualised representations of argumentso
+        arg1, arg2 = self.merge_tokens(graph_out, batch['mentions'])  # contextualised representations of argumentso
 
         #####################
         # Reconstruction
@@ -244,10 +240,10 @@ class GraphNet(BaseNet):
             kld = torch.zeros((1,)).to(self.device)
             reco_loss = {'sum': torch.zeros((1,)).to(self.device),
                          'mean': torch.zeros((1,)).to(self.device)}
-            mu_ = torch.zeros((hidden.size(0), self.config['latent_dim'])).to(self.device)
+            mu_ = torch.zeros((graph_out.size(0), self.config['latent_dim'])).to(self.device)
 
             # sentence representation
-            sent_rep = torch.cat([hidden, arg1, arg2], dim=1)
+            sent_rep = torch.cat([graph_hid, arg1, arg2], dim=1)
 
         # Sentence per bag
         sent_rep = pad_sequence(torch.split(sent_rep, batch['bag_size'].tolist(), dim=0),
@@ -256,7 +252,7 @@ class GraphNet(BaseNet):
 
         # Sentence-level Attention
         sent_rep = self.reduction(sent_rep)
-        sent_rep = self.sentence_attention(sent_rep, batch['bag_size'], self.r_embeb.embedding.weight.data)
+        sent_rep = self.sentence_attention(sent_rep, batch['bag_size'], self.r_embed.embedding.weight.data)
 
         #####################
         # Classification
@@ -265,5 +261,8 @@ class GraphNet(BaseNet):
         sent_rep = self.dim2rel(sent_rep)  # tie embeds
         sent_rep = sent_rep.diagonal(dim1=1, dim2=2)  # take probs based on relations query vector
         rel_probs, task_loss = self.calc_task_loss(sent_rep, batch['rel'])
+
+        # TODO: Iterative Graph Learning
+
         assert torch.sum(torch.isnan(rel_probs)) == 0.0, sent_rep
         return task_loss, rel_probs, kld, reco_loss, mu_
