@@ -5,6 +5,8 @@ from torch.nn.utils.rnn import pad_sequence
 from init_net import BaseNet
 import numpy as np
 
+from text_graph import TextGraph
+
 
 class GraphNet(BaseNet):
     """
@@ -201,6 +203,10 @@ class GraphNet(BaseNet):
 
         x_vec = self.in_drop(x_vec)
 
+        # TODO: IDGL module
+        # TODO:  lang_encoder in IDGL
+        graph_out = self.graph_encoder(x_vec, batch['sent_len'])
+
         # LSTM Encoder
         enc_out, (hidden, cell_state) = self.lang_encoder(x_vec, len_=batch['sent_len'])
 
@@ -243,8 +249,6 @@ class GraphNet(BaseNet):
             # sentence representation
             sent_rep = torch.cat([hidden, arg1, arg2], dim=1)
 
-        #TODO: IDGL module
-
         # Sentence per bag
         sent_rep = pad_sequence(torch.split(sent_rep, batch['bag_size'].tolist(), dim=0),
                                 batch_first=True,
@@ -259,7 +263,7 @@ class GraphNet(BaseNet):
         #####################
         sent_rep = self.out_drop(sent_rep)
         sent_rep = self.dim2rel(sent_rep)  # tie embeds
-        sent_rep = sent_rep.diagonal(dim1=1, dim2=2) # take probs based on relations query vector
+        sent_rep = sent_rep.diagonal(dim1=1, dim2=2)  # take probs based on relations query vector
         rel_probs, task_loss = self.calc_task_loss(sent_rep, batch['rel'])
         assert torch.sum(torch.isnan(rel_probs)) == 0.0, sent_rep
         return task_loss, rel_probs, kld, reco_loss, mu_

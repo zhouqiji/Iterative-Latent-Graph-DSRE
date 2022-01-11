@@ -2,6 +2,7 @@ from modules.embed import *
 from modules.encoders_decoders import *
 from modules.attention import *
 from modules.ModifiedAdaptiveSoftmax import AdaptiveLogSoftmaxWithLoss
+from text_graph import TextGraph
 
 
 class BaseNet(nn.Module):
@@ -49,6 +50,8 @@ class BaseNet(nn.Module):
                                         dir2=config['enc_bidirectional'],
                                         device=self.device,
                                         action='sum')
+
+        self.graph_encoder = TextGraph(config=config, lang_encoder=self.lang_encoder)
 
         # TODO: Selective Attention, Needed?
         self.sentence_attention = SelectiveAttention(device=self.device)

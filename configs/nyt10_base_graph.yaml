@@ -58,7 +58,7 @@ graph_module: 'gcn'
 graph_type: 'dynamic'
 graph_learn: True
 graph_batch_norm: True
-graph_metric_type: 'weighted_cosine' # weighted_cosine, kernel, attention, gat_attention, cosine
+graph_metric_type: 'weighted_cosine' # weighted_cosine
 graph_skip_conn: 0.1 # GL: 0.1, IGL: 0.1!
 update_adj_ratio: 0.4 # IGL: 0.4!
 graph_include_self: False # cosine-KNN-GCN: False
