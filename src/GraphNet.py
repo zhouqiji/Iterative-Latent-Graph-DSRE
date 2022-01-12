@@ -438,8 +438,8 @@ class GraphNet(BaseNet):
 
         if iter_ > 0:
             loss = torch.mean(loss / batch_last_iters.float()) + task_loss
-            batch_all_outputs = torch.cat(batch_all_outputs, 1)
-            selected_iter_index = batch_last_iters.long().unsqueeze(-1) - 1
+            # batch_all_outputs = torch.cat(batch_all_outputs, 1)
+            # selected_iter_index = batch_last_iters.long().unsqueeze(-1) - 1
 
             # if len(batch_all_outputs.shape) == 3:
             #     selected_iter_index = selected_iter_index.unsqueeze(-1).expand(-1, -1, batch_all_outputs.size(-1))
