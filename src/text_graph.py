@@ -58,9 +58,16 @@ class TextGraph(nn.Module):
                                                  num_pers=config['graph_learn_num_pers'],
                                                  metric_type=config['graph_metric_type'],
                                                  device=self.device)
-
+            self.graph_learner2 = graph_learn_fun(self.graph_hid_dim,
+                                                  config['graph_learn_hidden_size2'],
+                                                  topk=config['graph_learn_topk2'],
+                                                  epsilon=config['graph_learn_epsilon2'],
+                                                  num_pers=config['graph_learn_num_pers'],
+                                                  metric_type=config['graph_metric_type'],
+                                                  device=self.device)
         else:
             self.graph_learner = None
+            self.graph_learner2 = None
 
     def compute_no_gnn_output(self, context, context_lens):
         context_vec = self.ctx_encoder(context, len_=context_lens)
@@ -91,12 +98,12 @@ class TextGraph(nn.Module):
             return raw_adj, adj
 
     def compute_output(self, node_vec, node_mask=None):
-        graph_vec = self.graph_maxpool(node_vec.transpose(-1, -2))
+        graph_vec = self.graph_maxpool(node_vec.transpose(-1, -2), node_mask=node_mask)
         output = self.linear_out(graph_vec)
-        # output = F.log_softmax(output, dim=-1)
+        output = F.log_softmax(output, dim=-1)
         return output
 
-    def graph_maxpool(self, node_vec):
+    def graph_maxpool(self, node_vec, node_mask=None):
         graph_embed = F.max_pool1d(node_vec, kernel_size=node_vec.size(-1)).squeeze(-1)
         return graph_embed
 
@@ -139,4 +146,4 @@ class TextGraph(nn.Module):
         # Graph Output
         output = self.encoder.graph_encoders[-1](node_vec, cur_adj)
         hidden = self.compute_output(output, node_mask=node_mask)
-        return output, hidden, (cur_raw_adj, cur_adj, raw_node_vec)
+        return output, hidden, (init_adj, cur_raw_adj, cur_adj, raw_node_vec, init_node_vec, node_vec, node_mask)

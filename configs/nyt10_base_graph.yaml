@@ -78,4 +78,7 @@ graph_learn_topk2: null # attn-GCN: 140: 64.1, kernel-GCN: 100
 graph_hops: 2
 graph_out_dim: 256  # Tuning!
 graph_hid_dim: 256
+graph_learn_max_iter: 10
+eps_adj: 8e-3
+gl_dropout: 0.01
 

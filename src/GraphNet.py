@@ -191,7 +191,7 @@ class GraphNet(BaseNet):
 
         # Get the score
         preds = rel_probs.max(1)[1].type_as(target)
-        correct = preds.eq(target).double()
+        correct = preds.eq(target.max(1)[1]).double()
         correct = correct.sum().item()
         task_score = correct / len(target)
 
@@ -203,15 +203,16 @@ class GraphNet(BaseNet):
             graph_loss = []
             for i in range(out_adj.shape[0]):
                 L = torch.diagflat(torch.sum(out_adj[i], -1)) - out_adj[i]
-                graph_loss.append(self.config['smoothness_ratio']) * torch.trace(
-                    torch.mm(features[i].tranpose(-1, -2), torch.mm(L, features[i]))) / int(np.prod(out_adj.shape[1:]))
+                graph_loss.append(self.config['smoothness_ratio'] * torch.trace(
+                    torch.mm(features[i].transpose(-1, -2), torch.mm(L, features[i]))) / int(
+                    np.prod(out_adj.shape[1:])))
 
             graph_loss = torch.Tensor(graph_loss).to(self.device)
 
             ones_vec = torch.ones(out_adj.shape[:-1], device=self.device)
             graph_loss += -self.config['degree_ratio'] * torch.matmul(ones_vec.unsqueeze(1), torch.log(
-                torch.matmul(out_adj, ones_vec.unsqueeze(-1)) +
-                VERY_SMALL_NUMBER)).squeeze(-1).squeeze(-1) / out_adj.shape[-1]
+                torch.matmul(out_adj, ones_vec.unsqueeze(-1)) + VERY_SMALL_NUMBER)).squeeze(-1).squeeze(-1) / \
+                          out_adj.shape[-1]
             graph_loss += self.config['sparsity_ratio'] * torch.sum(torch.pow(out_adj, 2), (1, 2)) / int(
                 np.prod(out_adj.shape[1:]))
 
@@ -227,7 +228,20 @@ class GraphNet(BaseNet):
                 torch.matmul(out_adj, ones_vec.unsqueeze(-1)) + VERY_SMALL_NUMBER)).sum() / out_adj.shape[0] / \
                           out_adj.shape[-1]
             graph_loss += self.config['sparsity_ratio'] * torch.sum(torch.pow(out_adj, 2)) / int(np.prod(out_adj.shape))
-            return graph_loss
+        return graph_loss
+
+    def SquaredFrobeniusNorm(self, X):
+        return torch.sum(torch.pow(X, 2)) / int(np.prod(X.shape))
+
+    def batch_SquaredFrobeniusNorm(self, X):
+        return torch.sum(torch.pow(X, 2), (1, 2)) / int(np.prod(X.shape[1:]))
+
+    def batch_diff(self, X, Y, Z):
+        assert X.shape == Y.shape
+        diff_ = torch.sum(torch.pow(X - Y, 2), (1, 2))
+        norm_ = torch.sum(torch.pow(Z, 2), (1, 2))
+        diff_ = diff_ / torch.clamp(norm_, min=VERY_SMALL_NUMBER)
+        return diff_
 
     # model forward
     def forward(self, batch):
@@ -301,18 +315,141 @@ class GraphNet(BaseNet):
         sent_rep = self.dim2rel(sent_rep)  # tie embeds
         sent_rep = sent_rep.diagonal(dim1=1, dim2=2)  # take probs based on relations query vector
 
-        rel_probs, task_loss, task_score = self.calc_task_loss(sent_rep, batch['rel'])
+        rel_probs, task_loss, _ = self.calc_task_loss(sent_rep, batch['rel'])
 
-        # TODO: Iterative Graph Learning
-        cur_raw_adj, cur_adj, raw_node_vec = graph_features
+        # # TODO: Iterative Graph Learning
+        init_adj, cur_raw_adj, cur_adj, raw_node_vec, init_node_vec, node_vec, node_mask = graph_features
 
         if self.config['graph_learn'] and self.config['graph_learn_regularization']:
             task_loss += self.add_batch_graph_loss(cur_raw_adj, raw_node_vec)
 
         first_raw_adj, first_adj = cur_raw_adj, cur_adj
 
-        if self.training:
-            pass
+        # Simper version
+        max_iter = self.config['graph_learn_max_iter']
+
+        eps_adj = float(self.config['eps_adj'])
+
+        # For graph learning
+        loss = 0
+        iter_ = 0
+
+        # Indicate the last iteration umber for each example
+        batch_last_iters = torch.zeros(batch['source'].size(0), dtype=torch.uint8, device=self.device)
+        # Indicate either an xample is in ongoing state (i.e., 1) or stopping state (i.e., 0)
+        batch_stop_indicators = torch.ones(batch['source'].size(0), dtype=torch.uint8, device=self.device)
+        batch_all_outputs = []
+
+        while self.config['graph_learn'] and (
+                iter_ == 0 or torch.sum(batch_stop_indicators).item() > 0) and iter_ < max_iter:
+            iter_ += 1
+            batch_last_iters += batch_stop_indicators
+            pre_raw_adj = cur_raw_adj
+            cur_raw_adj, cur_adj = self.graph_encoder.learn_graph(self.graph_encoder.graph_learner2, node_vec,
+                                                                  self.graph_encoder.graph_skip_conn,
+                                                                  node_mask=node_mask,
+                                                                  graph_include_self=self.graph_encoder.graph_include_self,
+                                                                  init_adj=init_adj)
+
+            update_adj_ratio = self.config['update_adj_ratio']
+            if update_adj_ratio is not None:
+                cur_adj = update_adj_ratio * cur_adj + (1 - update_adj_ratio) * first_adj
+
+            node_vec = torch.relu(self.graph_encoder.encoder.graph_encoders[0](init_node_vec, cur_adj))
+            node_vec = F.dropout(node_vec, self.config['gl_dropout'], training=self.training)
+
+            # Add mid GNN layers if needed
+            for encoder in self.graph_encoder.encoder.graph_encoders[1:-1]:
+                node_vec = torch.relu(encoder(node_vec, cur_adj))
+                node_vec = F.dropout(node_vec, self.config['gl_dropout'], training=self.training)
+
+            # BP to update wegiths
+            tmp_output = self.graph_encoder.encoder.graph_encoders[-1](node_vec, cur_adj)
+            tmp_hidden = self.graph_encoder.compute_output(tmp_output, node_mask=node_mask)
+            tmp_arg1, tmp_arg2 = self.merge_tokens(tmp_output,
+                                                   batch['mentions'])  # contextualised representations of argumentso
+
+            #####################
+            # Reconstruction
+            #####################
+            if self.config['reconstruction']:
+                tmp_new_input = torch.cat([tmp_hidden, cell_state], dim=1)
+
+                # create hidden code
+                tmp_mu_ = self.hid2mu(tmp_new_input)
+                tmp_logvar_ = self.hid2var(tmp_new_input)
+                tmp_latent_z = self.reparameterisation(tmp_mu_, tmp_logvar_)
+
+                if self.config['priors']:
+                    tmp_prior_mus_expanded = torch.repeat_interleave(batch['prior_mus'], repeats=batch['bag_size'],
+                                                                     dim=0)
+                    tmp_kld = self.calc_kld(tmp_mu_, tmp_logvar_, mu_prior=tmp_prior_mus_expanded)
+
+                else:
+                    tmp_kld = self.calc_kld(tmp_mu_, tmp_logvar_)
+
+                # reconstruction
+                tmp_recon_x = self.reconstruction(tmp_latent_z, batch)
+                tmp_reco_loss = self.calc_reconstruction_loss(tmp_recon_x, batch)
+
+                # sentence representation --> use info from VAE !!
+                tmp_output_sent = torch.cat([tmp_latent_z, tmp_arg1, tmp_arg2], dim=1)
+
+            else:
+                kld = torch.zeros((1,)).to(self.device)
+                reco_loss = {'sum': torch.zeros((1,)).to(self.device),
+                             'mean': torch.zeros((1,)).to(self.device)}
+                mu_ = torch.zeros((graph_out.size(0), self.config['latent_dim'])).to(self.device)
+
+                # sentence representation
+                tmp_output_sent = torch.cat([tmp_hidden, tmp_arg1, tmp_arg2], dim=1)
+                # Sentence-level Attention
+
+            # Sentence per bag
+            tmp_output = pad_sequence(torch.split(tmp_output_sent, batch['bag_size'].tolist(), dim=0),
+                                      batch_first=True,
+                                      padding_value=0)
+            tmp_output = self.reduction(tmp_output)
+            tmp_output = self.sentence_attention(tmp_output, batch['bag_size'], self.r_embed.embedding.weight.data)
+
+            #####################
+            # Classification
+            #####################
+            tmp_output = self.out_drop(tmp_output)
+            tmp_output = self.dim2rel(tmp_output)  # tie embeds
+            tmp_output = tmp_output.diagonal(dim1=1, dim2=2)  # take probs based on relations query vector
+            batch_all_outputs.append(tmp_output_sent.unsqueeze(1))
+
+            _, tmp_loss, _ = self.calc_task_loss(tmp_output, batch['rel'])
+            if len(tmp_loss.shape) == 2:
+                tmp_loss = torch.mean(tmp_loss, 1)
+
+            loss += batch_stop_indicators.float() * tmp_loss
+
+            if self.config['graph_learn'] and self.config['graph_learn_regularization']:
+                loss += batch_stop_indicators.float() * self.add_batch_graph_loss(cur_raw_adj, raw_node_vec,
+                                                                                  keep_batch_dim=True)
+
+            if self.config['graph_learn'] and not self.config['graph_learn_ratio'] in (None, 0):
+                loss += batch_stop_indicators.float() * self.batch_SquaredFrobeniusNorm(cur_adj - pre_raw_adj) * \
+                        self.config['graph_learn_ratio']
+            tmp_stop_criteria = self.batch_diff(cur_raw_adj, pre_raw_adj, first_raw_adj) > eps_adj
+            batch_stop_indicators = batch_stop_indicators * tmp_stop_criteria
+
+        if iter_ > 0:
+            loss = torch.mean(loss / batch_last_iters.float()) + task_loss
+            batch_all_outputs = torch.cat(batch_all_outputs, 1)
+            selected_iter_index = batch_last_iters.long().unsqueeze(-1) - 1
+
+            # if len(batch_all_outputs.shape) == 3:
+            #     selected_iter_index = selected_iter_index.unsqueeze(-1).expand(-1, -1, batch_all_outputs.size(-1))
+            #     output = batch_all_outputs.gather(1, selected_iter_index).squeeze(1)
+            # else:
+            #     output = batch_all_outputs.gather(1, selected_iter_index)
+            #
+            # _, _, score = self.calc_task_loss(output.detach().cpu(), batch['rel'].cpu())
+        else:
+            loss = task_loss
 
         assert torch.sum(torch.isnan(rel_probs)) == 0.0, sent_rep
-        return task_loss, rel_probs, kld, reco_loss, mu_
+        return loss, rel_probs, kld, reco_loss, mu_
