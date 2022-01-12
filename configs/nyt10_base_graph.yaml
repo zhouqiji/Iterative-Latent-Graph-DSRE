@@ -14,11 +14,11 @@ exp_name: 'nyt10'
 model_name: 'nyt10'
 
 # Hyper-parameters
-batch_size: 16
+batch_size: 32
 epochs: 100
 bag_size: 500
 word_embed_dim: 50
-rel_embed_dim: 64
+rel_embed_dim: 32
 pos_embed_dim: 8
 latent_dim: 0
 max_sent_len: 50
@@ -76,8 +76,8 @@ graph_learn_hidden_size2: 70 # kernel: 90, attention: 70
 graph_learn_epsilon2: 0 # weighted_cosine: 0
 graph_learn_topk2: null # attn-GCN: 140: 64.1, kernel-GCN: 100
 graph_hops: 2
-graph_out_dim: 128  # Tuning!
-graph_hid_dim: 128
+graph_out_dim: 64  # Tuning!
+graph_hid_dim: 64
 graph_learn_max_iter: 10
 eps_adj: 8e-3
 gl_dropout: 0.01
