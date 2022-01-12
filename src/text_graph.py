@@ -139,4 +139,4 @@ class TextGraph(nn.Module):
         # Graph Output
         output = self.encoder.graph_encoders[-1](node_vec, cur_adj)
         hidden = self.compute_output(output, node_mask=node_mask)
-        return output, hidden
+        return output, hidden, (cur_raw_adj, cur_adj, raw_node_vec)

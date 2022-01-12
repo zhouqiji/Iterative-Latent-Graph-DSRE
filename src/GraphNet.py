@@ -4,6 +4,7 @@ import torch.nn.functional as F
 from torch.nn.utils.rnn import pad_sequence
 from init_net import BaseNet
 import numpy as np
+from modules.constants import *
 
 from text_graph import TextGraph
 
@@ -187,7 +188,46 @@ class GraphNet(BaseNet):
         task_loss = torch.sum(task_loss, dim=1)
         task_loss = torch.mean(task_loss)  # sum across relations, mean over batch
         rel_probs = torch.sigmoid(rel_logits)
-        return rel_probs, task_loss
+
+        # Get the score
+        preds = rel_probs.max(1)[1].type_as(target)
+        correct = preds.eq(target).double()
+        correct = correct.sum().item()
+        task_score = correct / len(target)
+
+        return rel_probs, task_loss, task_score
+
+    def add_batch_graph_loss(self, out_adj, features, keep_batch_dim=False):
+        # Graph regularization
+        if keep_batch_dim:
+            graph_loss = []
+            for i in range(out_adj.shape[0]):
+                L = torch.diagflat(torch.sum(out_adj[i], -1)) - out_adj[i]
+                graph_loss.append(self.config['smoothness_ratio']) * torch.trace(
+                    torch.mm(features[i].tranpose(-1, -2), torch.mm(L, features[i]))) / int(np.prod(out_adj.shape[1:]))
+
+            graph_loss = torch.Tensor(graph_loss).to(self.device)
+
+            ones_vec = torch.ones(out_adj.shape[:-1], device=self.device)
+            graph_loss += -self.config['degree_ratio'] * torch.matmul(ones_vec.unsqueeze(1), torch.log(
+                torch.matmul(out_adj, ones_vec.unsqueeze(-1)) +
+                VERY_SMALL_NUMBER)).squeeze(-1).squeeze(-1) / out_adj.shape[-1]
+            graph_loss += self.config['sparsity_ratio'] * torch.sum(torch.pow(out_adj, 2), (1, 2)) / int(
+                np.prod(out_adj.shape[1:]))
+
+        else:
+            graph_loss = 0
+            for i in range(out_adj.shape[0]):
+                L = torch.diagflat(torch.sum(out_adj[i], -1)) - out_adj[i]
+                graph_loss += self.config['smoothness_ratio'] * torch.trace(
+                    torch.mm(features[i].transpose(-1, -2), torch.mm(L, features[i]))) / int(np.prod(out_adj.shape))
+
+            ones_vec = torch.ones(out_adj.shape[:-1], device=self.device)
+            graph_loss += -self.config['degree_ratio'] * torch.matmul(ones_vec.unsqueeze(1), torch.log(
+                torch.matmul(out_adj, ones_vec.unsqueeze(-1)) + VERY_SMALL_NUMBER)).sum() / out_adj.shape[0] / \
+                          out_adj.shape[-1]
+            graph_loss += self.config['sparsity_ratio'] * torch.sum(torch.pow(out_adj, 2)) / int(np.prod(out_adj.shape))
+            return graph_loss
 
     # model forward
     def forward(self, batch):
@@ -204,7 +244,7 @@ class GraphNet(BaseNet):
         x_vec = self.in_drop(x_vec)
 
         # Graph Encoder
-        graph_out, graph_hid = self.graph_encoder(x_vec, batch['sent_len'])
+        graph_out, graph_hid, graph_features = self.graph_encoder(x_vec, batch['sent_len'])
 
         ##########################
         # Argument Representation
@@ -260,9 +300,19 @@ class GraphNet(BaseNet):
         sent_rep = self.out_drop(sent_rep)
         sent_rep = self.dim2rel(sent_rep)  # tie embeds
         sent_rep = sent_rep.diagonal(dim1=1, dim2=2)  # take probs based on relations query vector
-        rel_probs, task_loss = self.calc_task_loss(sent_rep, batch['rel'])
+
+        rel_probs, task_loss, task_score = self.calc_task_loss(sent_rep, batch['rel'])
 
         # TODO: Iterative Graph Learning
+        cur_raw_adj, cur_adj, raw_node_vec = graph_features
+
+        if self.config['graph_learn'] and self.config['graph_learn_regularization']:
+            task_loss += self.add_batch_graph_loss(cur_raw_adj, raw_node_vec)
+
+        first_raw_adj, first_adj = cur_raw_adj, cur_adj
+
+        if self.training:
+            pass
 
         assert torch.sum(torch.isnan(rel_probs)) == 0.0, sent_rep
         return task_loss, rel_probs, kld, reco_loss, mu_
