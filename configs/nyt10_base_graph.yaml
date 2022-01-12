@@ -14,7 +14,7 @@ exp_name: 'nyt10'
 model_name: 'nyt10'
 
 # Hyper-parameters
-batch_size: 128
+batch_size: 32
 epochs: 100
 bag_size: 500
 word_embed_dim: 50

@@ -6,7 +6,7 @@ from helpers.collates import *
 
 import torch
 from bag_trainer import Trainer
-from src.GraphNet import GraphNet as Target_Model
+from GraphNet import GraphNet as Target_Model
 
 
 def set_seed(seed):

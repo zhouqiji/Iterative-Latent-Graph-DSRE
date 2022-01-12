@@ -5,7 +5,8 @@ from modules.gnn import GCN
 from modules.graphlearn import GraphLearner, get_binarized_kneighbors_graph
 from modules.utils import batch_normalize_adj
 
-from src.modules.constants import VERY_SMALL_NUMBER
+from modules.constants import VERY_SMALL_NUMBER
+
 from helpers.common import *
 
 
