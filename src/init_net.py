@@ -55,8 +55,11 @@ class BaseNet(nn.Module):
 
         # TODO: Selective Attention, Needed?
         self.sentence_attention = SelectiveAttention(device=self.device)
-        self.dim2rel = nn.Linear(in_features=config['rel_embed_dim'], out_features=len(vocabs['r_vocab']))
-        self.dim2rel.weight = self.r_embed.embedding.weight
+
+        self.dim2rel = nn.Linear(in_features=3 * config['enc_dim'], out_features=len(vocabs['r_vocab']))
+        self.rel_flatten = nn.Flatten(1, -1)
+        # self.dim2rel = nn.Linear(in_features=config['rel_embed_dim'], out_features=len(vocabs['r_vocab']))
+        # self.dim2rel.weight = self.r_embed.embedding.weight
 
         # task loss
         self.task_loss = nn.BCEWithLogitsLoss(reduction='none')

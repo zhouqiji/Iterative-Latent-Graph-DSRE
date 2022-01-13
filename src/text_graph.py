@@ -1,3 +1,4 @@
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
@@ -123,7 +124,27 @@ class TextGraph(nn.Module):
                                          mask=context_mask)
         return raw_context_vec, context_vec, context_mask, init_adj
 
-    def forward(self, context_vec, context_len):
+    def merge_tokens(self, enc_seq, mentions):
+        """
+        Merge tokens into mentions;
+        Find which tokens belong to a mention (based on start-end ids) and average them
+        """
+        start1, end1, w_ids1 = torch.broadcast_tensors(mentions[:, 0].unsqueeze(-1),
+                                                       mentions[:, 1].unsqueeze(-1),
+                                                       torch.arange(0, enc_seq.shape[1]).unsqueeze(0).to(self.device))
+
+        start2, end2, w_ids2 = torch.broadcast_tensors(mentions[:, 2].unsqueeze(-1),
+                                                       mentions[:, 3].unsqueeze(-1),
+                                                       torch.arange(0, enc_seq.shape[1]).unsqueeze(0).to(self.device))
+
+        index_t1 = (torch.ge(w_ids1, start1) & torch.le(w_ids1, end1)).float().to(self.device).unsqueeze(1)
+        index_t2 = (torch.ge(w_ids2, start2) & torch.le(w_ids2, end2)).float().to(self.device).unsqueeze(1)
+
+        arg1 = torch.div(torch.matmul(index_t1, enc_seq), torch.sum(index_t1, dim=2).unsqueeze(-1)).squeeze(1)  # avg
+        arg2 = torch.div(torch.matmul(index_t2, enc_seq), torch.sum(index_t2, dim=2).unsqueeze(-1)).squeeze(1)  # avg
+        return arg1, arg2
+
+    def forward(self, context_vec, context_len, mentions):
         # Prepare init node embedding, init adj
         raw_context_vec, context_vec, context_mask, init_adj = self.prepare_init_graph(context_vec, context_len)
 
@@ -146,5 +167,9 @@ class TextGraph(nn.Module):
 
         # Graph Output
         output = self.encoder.graph_encoders[-1](node_vec, cur_adj)
+        # TODO: Merge token
+        arg1, arg2 = self.merge_tokens(output, mentions)
+
         hidden = self.compute_output(output, node_mask=node_mask)
+        hidden = torch.cat([hidden, arg1, arg2], dim=1)
         return output, hidden, (init_adj, cur_raw_adj, cur_adj, raw_node_vec, init_node_vec, node_vec, node_mask)

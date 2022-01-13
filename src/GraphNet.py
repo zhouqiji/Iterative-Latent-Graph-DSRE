@@ -243,6 +243,13 @@ class GraphNet(BaseNet):
         diff_ = diff_ / torch.clamp(norm_, min=VERY_SMALL_NUMBER)
         return diff_
 
+    def sent_classifier(self, sent_vec):
+
+        sent_embed = self.dim2rel(sent_vec)
+        sent_embed = self.rel_flatten(sent_embed)
+        sent_embed = F.max_pool1d(sent_embed, kernel_size=sent_vec.size(-2))
+        return sent_embed
+
     # model forward
     def forward(self, batch):
         ######################
@@ -257,19 +264,22 @@ class GraphNet(BaseNet):
 
         x_vec = self.in_drop(x_vec)
 
-        # Graph Encoder
-        graph_out, graph_hid, graph_features = self.graph_encoder(x_vec, batch['sent_len'])
-
         ##########################
+        # TODO: In graph encoder
         # Argument Representation
         ##########################
-        arg1, arg2 = self.merge_tokens(graph_out, batch['mentions'])  # contextualised representations of argumentso
+        # arg1, arg2 = self.merge_tokens(x_vec, batch['mentions'])  # contextualised representations of argumentso
+
+        ##########################
+        # Graph Encoder
+        ##########################
+        graph_out, graph_hid, graph_features = self.graph_encoder(x_vec, batch['sent_len'], batch['mentions'])
 
         #####################
         # Reconstruction
         #####################
         if self.config['reconstruction']:
-            new_input = torch.cat([hidden, cell_state], dim=1)
+            new_input = torch.cat([graph_hid, cell_state], dim=1)
 
             # create hidden code
             mu_ = self.hid2mu(new_input)
@@ -288,7 +298,7 @@ class GraphNet(BaseNet):
             reco_loss = self.calc_reconstruction_loss(recon_x, batch)
 
             # sentence representation --> use info from VAE !!
-            sent_rep = torch.cat([latent_z, arg1, arg2], dim=1)
+            # sent_rep = torch.cat([latent_z, arg1, arg2], dim=1)
 
         else:
             kld = torch.zeros((1,)).to(self.device)
@@ -297,23 +307,29 @@ class GraphNet(BaseNet):
             mu_ = torch.zeros((graph_out.size(0), self.config['latent_dim'])).to(self.device)
 
             # sentence representation
-            sent_rep = torch.cat([graph_hid, arg1, arg2], dim=1)
+            # sent_rep = torch.cat([graph_hid, arg1, arg2], dim=1)
 
         # Sentence per bag
-        sent_rep = pad_sequence(torch.split(sent_rep, batch['bag_size'].tolist(), dim=0),
+        sent_rep = pad_sequence(torch.split(graph_hid, batch['bag_size'].tolist(), dim=0),
                                 batch_first=True,
                                 padding_value=0)
 
-        # Sentence-level Attention
-        sent_rep = self.reduction(sent_rep)
-        sent_rep = self.sentence_attention(sent_rep, batch['bag_size'], self.r_embed.embedding.weight.data)
-
-        #####################
-        # Classification
-        #####################
+        # Classifier
+        sent_rep = self.sent_classifier(sent_rep)
         sent_rep = self.out_drop(sent_rep)
-        sent_rep = self.dim2rel(sent_rep)  # tie embeds
-        sent_rep = sent_rep.diagonal(dim1=1, dim2=2)  # take probs based on relations query vector
+
+        # TODO: Simplify the classification model
+        # Sentence-level Attention
+        # sent_rep = self.reduction(sent_rep)
+        # sent_rep = self.sentence_attention(sent_rep, batch['bag_size'], self.r_embed.embedding.weight.data)
+
+        ######################
+        ## Classification
+        ######################
+
+        # sent_rep = self.out_drop(sent_rep)
+        # sent_rep = self.dim2rel(sent_rep)  # tie embeds
+        # sent_rep = sent_rep.diagonal(dim1=1, dim2=2)  # take probs based on relations query vector
 
         rel_probs, task_loss, _ = self.calc_task_loss(sent_rep, batch['rel'])
 
@@ -365,9 +381,9 @@ class GraphNet(BaseNet):
 
             # BP to update wegiths
             tmp_output = self.graph_encoder.encoder.graph_encoders[-1](node_vec, cur_adj)
+            tmp_arg1, tmp_arg2 = self.graph_encoder.merge_tokens(tmp_output, mentions=batch['mentions'])
             tmp_hidden = self.graph_encoder.compute_output(tmp_output, node_mask=node_mask)
-            tmp_arg1, tmp_arg2 = self.merge_tokens(tmp_output,
-                                                   batch['mentions'])  # contextualised representations of argumentso
+            tmp_hidden = torch.cat([tmp_hidden, tmp_arg1, tmp_arg2], dim=1)
 
             #####################
             # Reconstruction
@@ -393,7 +409,7 @@ class GraphNet(BaseNet):
                 tmp_reco_loss = self.calc_reconstruction_loss(tmp_recon_x, batch)
 
                 # sentence representation --> use info from VAE !!
-                tmp_output_sent = torch.cat([tmp_latent_z, tmp_arg1, tmp_arg2], dim=1)
+                # tmp_output_sent = torch.cat([tmp_latent_z, tmp_arg1, tmp_arg2], dim=1)
 
             else:
                 kld = torch.zeros((1,)).to(self.device)
@@ -402,23 +418,25 @@ class GraphNet(BaseNet):
                 mu_ = torch.zeros((graph_out.size(0), self.config['latent_dim'])).to(self.device)
 
                 # sentence representation
-                tmp_output_sent = torch.cat([tmp_hidden, tmp_arg1, tmp_arg2], dim=1)
+                # tmp_output_sent = torch.cat([tmp_hidden, tmp_arg1, tmp_arg2], dim=1)
                 # Sentence-level Attention
 
             # Sentence per bag
-            tmp_output = pad_sequence(torch.split(tmp_output_sent, batch['bag_size'].tolist(), dim=0),
+            tmp_output = pad_sequence(torch.split(tmp_hidden, batch['bag_size'].tolist(), dim=0),
                                       batch_first=True,
                                       padding_value=0)
-            tmp_output = self.reduction(tmp_output)
-            tmp_output = self.sentence_attention(tmp_output, batch['bag_size'], self.r_embed.embedding.weight.data)
+            # TODO: Simplify the classification
+            # tmp_output = self.reduction(tmp_output)
+            # tmp_output = self.sentence_attention(tmp_output, batch['bag_size'], self.r_embed.embedding.weight.data)
 
             #####################
             # Classification
             #####################
+            tmp_output = self.sent_classifier(tmp_output)
             tmp_output = self.out_drop(tmp_output)
-            tmp_output = self.dim2rel(tmp_output)  # tie embeds
-            tmp_output = tmp_output.diagonal(dim1=1, dim2=2)  # take probs based on relations query vector
-            batch_all_outputs.append(tmp_output_sent.unsqueeze(1))
+            # tmp_output = self.dim2rel(tmp_output)  # tie embeds
+            # tmp_output = tmp_output.diagonal(dim1=1, dim2=2)  # take probs based on relations query vector
+            batch_all_outputs.append(tmp_output.unsqueeze(1))
 
             _, tmp_loss, _ = self.calc_task_loss(tmp_output, batch['rel'])
             if len(tmp_loss.shape) == 2:
