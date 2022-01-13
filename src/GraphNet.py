@@ -243,13 +243,6 @@ class GraphNet(BaseNet):
         diff_ = diff_ / torch.clamp(norm_, min=VERY_SMALL_NUMBER)
         return diff_
 
-    def sent_classifier(self, sent_vec):
-
-        sent_embed = self.dim2rel(sent_vec)
-        sent_embed = self.rel_flatten(sent_embed)
-        sent_embed = F.max_pool1d(sent_embed, kernel_size=sent_vec.size(-2))
-        return sent_embed
-
     # model forward
     def forward(self, batch):
         ######################
@@ -265,7 +258,6 @@ class GraphNet(BaseNet):
         x_vec = self.in_drop(x_vec)
 
         ##########################
-        # TODO: In graph encoder
         # Argument Representation
         ##########################
         # arg1, arg2 = self.merge_tokens(x_vec, batch['mentions'])  # contextualised representations of argumentso
@@ -314,22 +306,20 @@ class GraphNet(BaseNet):
                                 batch_first=True,
                                 padding_value=0)
 
-        # Classifier
-        sent_rep = self.sent_classifier(sent_rep)
         sent_rep = self.out_drop(sent_rep)
 
         # TODO: Simplify the classification model
         # Sentence-level Attention
-        # sent_rep = self.reduction(sent_rep)
-        # sent_rep = self.sentence_attention(sent_rep, batch['bag_size'], self.r_embed.embedding.weight.data)
+        sent_rep = self.reduction(sent_rep)
+        sent_rep = self.sentence_attention(sent_rep, batch['bag_size'], self.r_embed.embedding.weight.data)
 
         ######################
         ## Classification
         ######################
 
-        # sent_rep = self.out_drop(sent_rep)
-        # sent_rep = self.dim2rel(sent_rep)  # tie embeds
-        # sent_rep = sent_rep.diagonal(dim1=1, dim2=2)  # take probs based on relations query vector
+        sent_rep = self.out_drop(sent_rep)
+        sent_rep = self.dim2rel(sent_rep)  # tie embeds
+        sent_rep = sent_rep.diagonal(dim1=1, dim2=2)  # take probs based on relations query vector
 
         rel_probs, task_loss, _ = self.calc_task_loss(sent_rep, batch['rel'])
 
@@ -425,17 +415,15 @@ class GraphNet(BaseNet):
             tmp_output = pad_sequence(torch.split(tmp_hidden, batch['bag_size'].tolist(), dim=0),
                                       batch_first=True,
                                       padding_value=0)
-            # TODO: Simplify the classification
-            # tmp_output = self.reduction(tmp_output)
-            # tmp_output = self.sentence_attention(tmp_output, batch['bag_size'], self.r_embed.embedding.weight.data)
+            tmp_output = self.reduction(tmp_output)
+            tmp_output = self.sentence_attention(tmp_output, batch['bag_size'], self.r_embed.embedding.weight.data)
 
             #####################
             # Classification
             #####################
-            tmp_output = self.sent_classifier(tmp_output)
             tmp_output = self.out_drop(tmp_output)
-            # tmp_output = self.dim2rel(tmp_output)  # tie embeds
-            # tmp_output = tmp_output.diagonal(dim1=1, dim2=2)  # take probs based on relations query vector
+            tmp_output = self.dim2rel(tmp_output)  # tie embeds
+            tmp_output = tmp_output.diagonal(dim1=1, dim2=2)  # take probs based on relations query vector
             batch_all_outputs.append(tmp_output.unsqueeze(1))
 
             _, tmp_loss, _ = self.calc_task_loss(tmp_output, batch['rel'])

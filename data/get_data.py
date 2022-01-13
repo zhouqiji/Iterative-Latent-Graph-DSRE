@@ -1,4 +1,4 @@
-import os,sys,re
+import os, sys, re
 import argparse
 import logging
 import wget
@@ -8,9 +8,9 @@ from tqdm import tqdm
 import numpy as np
 from sklearn.model_selection import train_test_split
 
-
 # raw data path
 LANG_PATH = './LANG/'
+
 
 def download_data(data_name):
     _data_dir = os.path.join(LANG_PATH, data_name)
@@ -27,23 +27,26 @@ def download_data(data_name):
 
         train_file = wget.download(train_url, out=_data_dir)
         test_file = wget.download(test_url, out=_data_dir)
-        id_file = wget.download(rel_id_url, out=_data_dir)
+        # id_file = wget.download(rel_id_url, out=_data_dir)
 
-        train_file_full = _data_dir+'/nyt10_train_full.txt'
+        train_file_full = _data_dir + '/nyt10_train_full.txt'
 
         os.rename(train_file, train_file_full)
+
+        id_file = './nyt10_rel2id.json'
         return _data_dir, train_file_full, train_file, id_file
 
     elif data_name == 'nyt10_570k':
         data_url = 'https://github.com/ZhixiuYe/Intra-Bag-and-Inter-Bag-Attentions/raw/master/NYT_data/NYT_data.zip'
 
-        data_file = wget.download(data_url,out=_data_dir)
+        data_file = wget.download(data_url, out=_data_dir)
         with zipfile.ZipFile(data_file, 'r') as zip_ref:
             zip_ref.extractall(_data_dir)
 
-        train_raw_file = _data_dir+'/train.txt'
-        train_file_full = _data_dir+'/nyt10_570k_train_full.txt'
-        train_file = _data_dir+'/nyt10_570k_train.txt'
+        train_raw_file = _data_dir + '/train.txt'
+        train_file_full = _data_dir + '/nyt10_570k_train_full.txt'
+        train_file = _data_dir + '/nyt10_570k_train.txt'
+
         # fix_format
         def identify_argument(text, arg1):
             # find argument offsets
@@ -85,12 +88,12 @@ def download_data(data_name):
                 offsets1 = identify_argument(sentence, name1)
                 offsets2 = identify_argument(sentence, name2)
 
-                out_dict = {'text':sentence,
+                out_dict = {'text': sentence,
                             'relation': relation,
-                            'h': {'name':name1, 'id':arg1_id, 'pos':list(offsets1)},
-                            't': {'name':name2, 'id':arg2_id, 'pos':list(offsets2)}}
+                            'h': {'name': name1, 'id': arg1_id, 'pos': list(offsets1)},
+                            't': {'name': name2, 'id': arg2_id, 'pos': list(offsets2)}}
                 outfile.write(json.dumps(out_dict) + '\n')
-        id_file = './LANG/nyt10/nyt10_rel2id.json'
+        id_file = './nyt10_rel2id.json'
         return _data_dir, train_file_full, train_file, id_file
 
     else:
@@ -111,9 +114,9 @@ def clean_data(data_name, data):
     _data_dir, train_file_full, train_file, id_file = data
     val_file = ''
     if data_name == 'nyt10':
-        val_file = _data_dir+'/nyt10_val.txt'
+        val_file = _data_dir + '/nyt10_val.txt'
     elif data_name == 'nyt10_570k':
-        val_file = _data_dir+'/nyt10_570k_val.txt'
+        val_file = _data_dir + '/nyt10_570k_val.txt'
     else:
         pass
 
@@ -200,6 +203,7 @@ def clean_data(data_name, data):
                     outfile.write(json.dumps(line))
                     outfile.write('\n')
 
+
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
     parser = argparse.ArgumentParser()
@@ -212,4 +216,3 @@ if __name__ == "__main__":
     data = download_data(args.dataset)
     if args.dataset.startswith('nyt'):
         clean_data(args.dataset, data)
-
