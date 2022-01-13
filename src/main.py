@@ -81,6 +81,27 @@ def load_trainer(train_loader_, val_loader_, test_loader_, train_data_, config, 
     return trainer
 
 
+def load_saved_model(config, prior_mus, device, which=None):
+    trainer = Trainer(config, device,
+                      iterators={'train': [], 'val': [], 'test': []},
+                      vocabs={'w_vocab': {}, 'r_vocab': {}, 'p_vocab': {}})
+
+    checkpoint = trainer.load_checkpoint(which)
+    vocabs = checkpoint['vocabs']
+    train_loader_, val_loader_, test_loader_, train_data_ = load_data(vocabs['w_vocab'], prior_mus, config,
+                                                                      pos_vocab=vocabs['p_vocab'],
+                                                                      mode='train-test')
+    trainer.iterators['train'] = train_loader_
+    trainer.iterators['val'] = val_loader_
+    trainer.iterators['test'] = test_loader_
+    trainer.iterations = len(train_loader_)
+
+    trainer.model = trainer.init_model(Target_Model)
+    trainer.optimizer = trainer.set_optimizer(trainer.model)
+    trainer.assign_model(checkpoint)
+    return trainer
+
+
 def main(args):
     config = load_config(args.config)
 
@@ -115,6 +136,33 @@ def main(args):
         train_loader, val_loader, test_loader, train_data = load_data(word_vocab, prior_mus, config)
         trainer = load_trainer(train_loader, val_loader, test_loader, train_data, config, device)
         _ = trainer.run()
+
+    elif config['mode'] == 'test':
+        trainer = load_saved_model(config, prior_mus, device)
+        print_options(config)
+
+        for name_ in ['val', 'test']:
+            tracker, time_ = trainer.eval_epoch(iter_name=name_)
+            perf, p_points, r_points = trainer.calculate_performance(0, tracker, time_, mode=name_)
+            np.savez(os.path.join(config['model_folder'], f'{name_}_pr.npz'), precision=p_points, recall=r_points)
+
+            print(f'\n--- {name_} set performance ---')
+            print('AUC: {:.4f}\np@100: {:.4f}, p@200: {:.4f}, p@300: {:.4f}, p@500: {:.4f}\n'.format(
+                perf['pr_auc'], perf['p@100'], perf['p@200'], perf['p@300'], perf['p@500']))
+
+    elif config['mode'] == 'infer':
+        trainer = load_saved_model(config, prior_mus, device)
+        trainer.collect_codes('train')
+        trainer.collect_codes('val')
+        # trainer.collect_codes('test')
+        # exit(0)
+        trainer.model.generation(20)  # generate sentences
+        for batch_idx, batch in enumerate(trainer.iterators['val']):
+            for keys in batch.keys():
+                if keys != 'bag_names':
+                    batch[keys] = batch[keys].to(device)
+            with torch.no_grad():
+                trainer.model.sample_posterior(batch)  # generate sentence by sampling the posterior
 
 
 if __name__ == "__main__":
