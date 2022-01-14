@@ -18,7 +18,7 @@ batch_size: 32
 epochs: 100
 bag_size: 500
 word_embed_dim: 50
-rel_embed_dim: 32
+rel_embed_dim: 64
 pos_embed_dim: 8
 latent_dim: 0
 max_sent_len: 50
@@ -30,8 +30,8 @@ enc_layers: 1
 dec_layers: 1
 enc_bidirectional: True
 dec_bidirectional: False
-input_dropout: 0.3
-output_dropout: 0.3
+input_dropout: 0.5
+output_dropout: 0.5
 teacher_force: 0.0
 lr: 0.001
 weight_decay: 0.000001

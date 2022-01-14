@@ -1,3 +1,4 @@
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
@@ -99,8 +100,8 @@ class TextGraph(nn.Module):
             return raw_adj, adj
 
     def compute_output(self, node_vec, node_mask=None):
-        graph_vec = self.graph_maxpool(node_vec.transpose(-1, -2), node_mask=node_mask)
-        output = self.linear_out(graph_vec)
+        output = self.graph_maxpool(node_vec.transpose(-1, -2), node_mask=node_mask)
+        output = self.linear_out(output)
         output = F.log_softmax(output, dim=-1)
         return output
 
@@ -121,11 +122,12 @@ class TextGraph(nn.Module):
 
         init_adj = self.compute_init_adj(raw_context_vec.detach(), self.config['input_graph_knn_size'],
                                          mask=context_mask)
-        return raw_context_vec, context_vec, context_mask, init_adj
+        return raw_context_vec, context_vec, context_mask, init_adj, hidden, cell_state
 
     def forward(self, context_vec, context_len):
         # Prepare init node embedding, init adj
-        raw_context_vec, context_vec, context_mask, init_adj = self.prepare_init_graph(context_vec, context_len)
+        raw_context_vec, context_vec, context_mask, init_adj, enc_hidden, cell_state = self.prepare_init_graph(
+            context_vec, context_len)
 
         # Init
         raw_node_vec = raw_context_vec  # word embedding
@@ -147,5 +149,6 @@ class TextGraph(nn.Module):
         # Graph Output
         output = self.encoder.graph_encoders[-1](node_vec, cur_adj)
 
-        hidden = self.compute_output(output, node_mask=node_mask)
+        hidden = self.compute_output(output + enc_hidden.unsqueeze(-2) + cell_state.unsqueeze(-2),
+                                     node_mask=node_mask)
         return output, hidden, (init_adj, cur_raw_adj, cur_adj, raw_node_vec, init_node_vec, node_vec, node_mask)

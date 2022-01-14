@@ -257,6 +257,8 @@ class GraphNet(BaseNet):
 
         x_vec = self.in_drop(x_vec)
 
+        # enc_out, (hidden, cell_state) = self.lang_encoder(x_vec, len_=batch['sent_len'])
+
         ##########################
         # Graph Encoder
         ##########################
@@ -366,7 +368,6 @@ class GraphNet(BaseNet):
                 node_vec = torch.relu(encoder(node_vec, cur_adj))
                 node_vec = F.dropout(node_vec, self.config['gl_dropout'], training=self.training)
 
-            # BP to update wegiths
             tmp_output = self.graph_encoder.encoder.graph_encoders[-1](node_vec, cur_adj)
             tmp_hidden = self.graph_encoder.compute_output(tmp_output, node_mask=node_mask)
 
