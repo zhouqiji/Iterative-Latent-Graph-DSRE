@@ -75,7 +75,7 @@ class Trainer(BaseTrainer):
             mode=mode
         )
 
-        for item in ['total', 'task', 'reco', 'kld', 'ppl']:
+        for item in ['total', 'graph', 'task', 'reco', 'kld', 'ppl']:
             tracker[item] = np.mean(tracker[item])
 
         print_performance(epoch, tracker, performance, time_, name=mode)
@@ -83,7 +83,7 @@ class Trainer(BaseTrainer):
 
     @staticmethod
     def init_tracker():
-        return {'total': [], 'reco': [], 'kld': [], 'kld_w': [], 'task': [], 'ppl': [],
+        return {'total': [], 'graph': [], 'reco': [], 'kld': [], 'kld_w': [], 'task': [], 'ppl': [],
                 'probabilities': [], 'gtruth': [], 'total_bags': 0, 'total_sents': 0}
 
     @staticmethod
@@ -154,14 +154,14 @@ class Trainer(BaseTrainer):
                 self.show_example(batch)
 
             self.model.zero_grad()
-            task_loss, rel_probs, kld, rec_loss, latent_z = self.model(batch)  # forward pass
+            task_loss, graph_loss, rel_probs, kld, rec_loss, latent_z = self.model(batch)  # forward pass
 
             # TODO: update for graph vae
             if self.config['reconstruction']:
                 loss = (self.config['task_weight'] * task_loss) + \
                        (1 - self.config['task_weight']) * (rec_loss['sum'] + (kl_w[step] * kld))
             else:
-                loss = task_loss
+                loss = task_loss + graph_loss
 
             loss.backward()
 
@@ -178,13 +178,14 @@ class Trainer(BaseTrainer):
             tracker['ppl'] += [np.exp(rec_loss['mean'].item())]  # mean loss for PPL
             tracker['kld'] += [kld.item()]
             tracker['task'] += [task_loss.item()]
+            tracker['graph'] += [graph_loss.item()]
             tracker['kld_w'] += [kl_w[step]]
 
             if batch_idx % self.config['log_interval'] == 0:
-                print('Step {:<6}    LOSS = {:10.4f}    TASK = {:10.4f}    RECO = {:10.4f}    '
+                print('Step {:<6}    LOSS = {:10.4f}    TASK = {:10.4f}    GRAPH = {:10.4f}    RECO = {:10.4f}    '
                       'KL = {:10.6f}    KL_W = {:.04f}    PPL = {:10.4f}'.format(
                     step,
-                    loss.item(), tracker['task'][-1], tracker['reco'][-1],
+                    loss.item(), tracker['task'][-1], tracker['graph'][-1], tracker['reco'][-1],
                     tracker['kld'][-1], tracker['kld_w'][-1], tracker['ppl'][-1]))
 
         t2 = time()
@@ -208,14 +209,14 @@ class Trainer(BaseTrainer):
                     if keys != 'bag_names':
                         batch[keys] = batch[keys].to(self.device)
 
-                task_loss, rel_probs, kld, rec_loss, latent_z = self.model(batch)  # forward pass
+                task_loss, graph_loss, rel_probs, kld, rec_loss, latent_z = self.model(batch)  # forward pass
 
                 # TODO: update for graph vae
                 if self.config['reconstruction']:
                     loss = (self.config['task_weight'] * task_loss) + \
                            (1 - self.config['task_weight']) * (rec_loss['sum'] + kld)
                 else:
-                    loss = task_loss
+                    loss = task_loss + graph_loss
 
                 tracker['probabilities'] += [rel_probs.cpu().data.numpy()]
                 tracker['gtruth'] += [batch['rel'].cpu().data.numpy()]
@@ -224,6 +225,7 @@ class Trainer(BaseTrainer):
                 tracker['ppl'] += [np.exp(rec_loss['mean'].item())]
                 tracker['kld'] += [kld.item()]
                 tracker['task'] += [task_loss.item()]
+                tracker['graph'] += [graph_loss.item()]
                 tracker['kld_w'] += [1]
 
         t2 = time()
