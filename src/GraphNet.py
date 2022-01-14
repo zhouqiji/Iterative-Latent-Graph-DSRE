@@ -258,14 +258,15 @@ class GraphNet(BaseNet):
         x_vec = self.in_drop(x_vec)
 
         ##########################
-        # Argument Representation
-        ##########################
-        # arg1, arg2 = self.merge_tokens(x_vec, batch['mentions'])  # contextualised representations of argumentso
-
-        ##########################
         # Graph Encoder
         ##########################
-        graph_out, graph_hid, graph_features = self.graph_encoder(x_vec, batch['sent_len'], batch['mentions'])
+        graph_out, graph_hid, graph_features = self.graph_encoder(x_vec, batch['sent_len'])
+
+        ##########################
+        # Argument Representation
+        ##########################
+
+        arg1, arg2 = self.merge_tokens(graph_out, batch['mentions'])  # contextualised representations of argumentso
 
         #####################
         # Reconstruction
@@ -290,7 +291,7 @@ class GraphNet(BaseNet):
             reco_loss = self.calc_reconstruction_loss(recon_x, batch)
 
             # sentence representation --> use info from VAE !!
-            # sent_rep = torch.cat([latent_z, arg1, arg2], dim=1)
+            sent_rep = torch.cat([latent_z, arg1, arg2], dim=1)
 
         else:
             kld = torch.zeros((1,)).to(self.device)
@@ -299,16 +300,13 @@ class GraphNet(BaseNet):
             mu_ = torch.zeros((graph_out.size(0), self.config['latent_dim'])).to(self.device)
 
             # sentence representation
-            # sent_rep = torch.cat([graph_hid, arg1, arg2], dim=1)
+            sent_rep = torch.cat([graph_hid, arg1, arg2], dim=1)
 
         # Sentence per bag
-        sent_rep = pad_sequence(torch.split(graph_hid, batch['bag_size'].tolist(), dim=0),
+        sent_rep = pad_sequence(torch.split(sent_rep, batch['bag_size'].tolist(), dim=0),
                                 batch_first=True,
                                 padding_value=0)
 
-        sent_rep = self.out_drop(sent_rep)
-
-        # TODO: Simplify the classification model
         # Sentence-level Attention
         sent_rep = self.reduction(sent_rep)
         sent_rep = self.sentence_attention(sent_rep, batch['bag_size'], self.r_embed.embedding.weight.data)
@@ -316,7 +314,6 @@ class GraphNet(BaseNet):
         ######################
         ## Classification
         ######################
-
         sent_rep = self.out_drop(sent_rep)
         sent_rep = self.dim2rel(sent_rep)  # tie embeds
         sent_rep = sent_rep.diagonal(dim1=1, dim2=2)  # take probs based on relations query vector
@@ -371,9 +368,7 @@ class GraphNet(BaseNet):
 
             # BP to update wegiths
             tmp_output = self.graph_encoder.encoder.graph_encoders[-1](node_vec, cur_adj)
-            tmp_arg1, tmp_arg2 = self.graph_encoder.merge_tokens(tmp_output, mentions=batch['mentions'])
             tmp_hidden = self.graph_encoder.compute_output(tmp_output, node_mask=node_mask)
-            tmp_hidden = torch.cat([tmp_hidden, tmp_arg1, tmp_arg2], dim=1)
 
             #####################
             # Reconstruction
@@ -399,7 +394,7 @@ class GraphNet(BaseNet):
                 tmp_reco_loss = self.calc_reconstruction_loss(tmp_recon_x, batch)
 
                 # sentence representation --> use info from VAE !!
-                # tmp_output_sent = torch.cat([tmp_latent_z, tmp_arg1, tmp_arg2], dim=1)
+                tmp_output_sent = torch.cat([tmp_latent_z, arg1, arg2], dim=1)
 
             else:
                 kld = torch.zeros((1,)).to(self.device)
@@ -408,11 +403,10 @@ class GraphNet(BaseNet):
                 mu_ = torch.zeros((graph_out.size(0), self.config['latent_dim'])).to(self.device)
 
                 # sentence representation
-                # tmp_output_sent = torch.cat([tmp_hidden, tmp_arg1, tmp_arg2], dim=1)
-                # Sentence-level Attention
+                tmp_output_sent = torch.cat([tmp_hidden, arg1, arg2], dim=1)
 
             # Sentence per bag
-            tmp_output = pad_sequence(torch.split(tmp_hidden, batch['bag_size'].tolist(), dim=0),
+            tmp_output = pad_sequence(torch.split(tmp_output_sent, batch['bag_size'].tolist(), dim=0),
                                       batch_first=True,
                                       padding_value=0)
             tmp_output = self.reduction(tmp_output)
