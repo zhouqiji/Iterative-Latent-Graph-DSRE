@@ -101,8 +101,8 @@ class TextGraph(nn.Module):
 
     def compute_output(self, node_vec, node_mask=None):
         output = self.graph_maxpool(node_vec.transpose(-1, -2), node_mask=node_mask)
-        output = self.linear_out(output)
-        output = F.log_softmax(output, dim=-1)
+        # output = self.linear_out(output)
+        # output = F.log_softmax(output, dim=-1)
         return output
 
     def graph_maxpool(self, node_vec, node_mask=None):

@@ -268,7 +268,7 @@ class GraphNet(BaseNet):
         # Argument Representation
         ##########################
 
-        arg1, arg2 = self.merge_tokens(graph_out, batch['mentions'])  # contextualised representations of argumentso
+        arg1, arg2 = self.merge_tokens(graph_out, batch['mentions'])  # contextualised representations of argument
 
         #####################
         # Reconstruction
@@ -371,6 +371,8 @@ class GraphNet(BaseNet):
             tmp_output = self.graph_encoder.encoder.graph_encoders[-1](node_vec, cur_adj)
             tmp_hidden = self.graph_encoder.compute_output(tmp_output, node_mask=node_mask)
 
+            tmp_arg1, tmp_arg2 = self.merge_tokens(tmp_output, batch['mentions'])
+
             #####################
             # Reconstruction
             #####################
@@ -395,7 +397,7 @@ class GraphNet(BaseNet):
                 tmp_reco_loss = self.calc_reconstruction_loss(tmp_recon_x, batch)
 
                 # sentence representation --> use info from VAE !!
-                tmp_output_sent = torch.cat([tmp_latent_z, arg1, arg2], dim=1)
+                tmp_output_sent = torch.cat([tmp_latent_z, tmp_arg1, tmp_arg2], dim=1)
 
             else:
                 kld = torch.zeros((1,)).to(self.device)
