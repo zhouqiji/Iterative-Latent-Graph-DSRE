@@ -37,11 +37,11 @@ class TextGraph(nn.Module):
         # Text Sentence Embedding
         self.ctx_encoder = lang_encoder
 
-        self.linear_out = nn.Linear(self.enc_dim, self.graph_out_dim)
+        self.linear_out = nn.Linear(self.graph_hid_dim, self.graph_out_dim)
 
         if self.graph_module == 'gcn':
             gcn_module = GCN
-            self.encoder = gcn_module(nfeat=self.graph_hid_dim,
+            self.encoder = gcn_module(nfeat=self.enc_dim,
                                       nhid=self.graph_hid_dim,
                                       nclass=self.graph_hid_dim,
                                       graph_hops=config['graph_hops'],
@@ -131,7 +131,7 @@ class TextGraph(nn.Module):
 
         # Init
         raw_node_vec = raw_context_vec  # word embedding
-        init_node_vec = context_vec  # hidden embedding
+        init_node_vec = (context_vec + enc_hidden.unsqueeze(-2) + cell_state.unsqueeze(-2))  # hidden embedding
         node_mask = context_mask
 
         cur_raw_adj, cur_adj = self.learn_graph(self.graph_learner, raw_node_vec, self.graph_skip_conn,
@@ -149,6 +149,6 @@ class TextGraph(nn.Module):
         # Graph Output
         output = self.encoder.graph_encoders[-1](node_vec, cur_adj)
 
-        hidden = self.compute_output(output + enc_hidden.unsqueeze(-2) + cell_state.unsqueeze(-2),
+        hidden = self.compute_output(output,
                                      node_mask=node_mask)
         return output, hidden, (init_adj, cur_raw_adj, cur_adj, raw_node_vec, init_node_vec, node_vec, node_mask)

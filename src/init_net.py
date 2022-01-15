@@ -84,6 +84,6 @@ class BaseNet(nn.Module):
                                                         cutoffs=[round(vocabs['w_vocab'].n_word / 15),
                                                                  3 * round(vocabs['w_vocab'].n_word / 15)])
         else:
-            self.reduction = nn.Linear(in_features=3 * config['enc_dim'],
+            self.reduction = nn.Linear(in_features=3 * config['graph_out_dim'],
                                        out_features=config['rel_embed_dim'],
                                        bias=False)
