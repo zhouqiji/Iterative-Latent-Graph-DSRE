@@ -1,3 +1,6 @@
+import torch.nn as nn
+import torch.nn.functional as F
+
 from modules.embed import *
 from modules.encoders_decoders import *
 from modules.attention import *
@@ -57,8 +60,14 @@ class BaseNet(nn.Module):
         self.sentence_attention = SelectiveAttention(device=self.device)
 
         self.rel_flatten = nn.Flatten(1, -1)
-        self.dim2rel = nn.Linear(in_features=config['rel_embed_dim'], out_features=len(vocabs['r_vocab']))
-        self.dim2rel.weight = self.r_embed.embedding.weight
+        # TODO: Simple version
+
+        self.dim2rel_linear = nn.Linear(in_features=config['graph_out_dim'] * 3, out_features=len(vocabs['r_vocab']))
+
+        # self.dim2rel = nn.Linear(in_features=config['graph_out_dim'] * 3, out_features=len(vocabs['r_vocab']))
+
+        # self.dim2rel = nn.Linear(in_features=config['rel_embed_dim'], out_features=len(vocabs['r_vocab']))
+        # self.dim2rel.weight = self.r_embed.embedding.weight
 
         # task loss
         self.task_loss = nn.BCEWithLogitsLoss(reduction='none')
@@ -87,3 +96,11 @@ class BaseNet(nn.Module):
             self.reduction = nn.Linear(in_features=3 * config['graph_out_dim'],
                                        out_features=config['rel_embed_dim'],
                                        bias=False)
+
+    def dim2rel(self, dim_vec):
+        rel_vec = self.dim2rel_linear(dim_vec)
+        # rel_vec = F.max_pool1d(rel_vec, kernel_size=rel_vec.size(-1)).squeeze(-1)
+        rel_vec = rel_vec.sum(dim=-2)
+        rel_vec = self.out_drop(rel_vec)
+        rel_vec = F.log_softmax(rel_vec, dim=-1)
+        return rel_vec

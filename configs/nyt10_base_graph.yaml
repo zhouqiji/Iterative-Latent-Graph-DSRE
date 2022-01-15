@@ -24,7 +24,7 @@ latent_dim: 0
 max_sent_len: 50
 pretrained_embeds_file: ../embeds/glove.6B.50d.txt  # vec.txt (Lin et al., 2016)
 freeze_words: False
-enc_dim: 128
+enc_dim: 256
 dec_dim: 0
 enc_layers: 1
 dec_layers: 1
@@ -76,9 +76,9 @@ graph_learn_hidden_size2: 70 # kernel: 90, attention: 70
 graph_learn_epsilon2: 0 # weighted_cosine: 0
 graph_learn_topk2: null # attn-GCN: 140: 64.1, kernel-GCN: 100
 graph_hops: 2
-graph_out_dim: 64  # Tuning!
-graph_hid_dim: 64
-graph_learn_max_iter: 4
+graph_out_dim: 128  # Tuning!
+graph_hid_dim: 128
+graph_learn_max_iter: 5
 eps_adj: 8e-3
 gl_dropout: 0.01
 

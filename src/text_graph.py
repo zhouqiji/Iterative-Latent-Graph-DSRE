@@ -99,11 +99,11 @@ class TextGraph(nn.Module):
             adj = init_adj
             return raw_adj, adj
 
-    def compute_output(self, node_vec, node_mask=None):
+    def compute_hidden(self, node_vec, node_mask=None):
         output = self.graph_maxpool(node_vec.transpose(-1, -2), node_mask=node_mask)
         # output = self.linear_out(output)
         # output = F.log_softmax(output, dim=-1)
-        return output
+        return F.relu(output)
 
     def graph_maxpool(self, node_vec, node_mask=None):
         graph_embed = F.max_pool1d(node_vec, kernel_size=node_vec.size(-1)).squeeze(-1)
@@ -149,6 +149,8 @@ class TextGraph(nn.Module):
         # Graph Output
         output = self.encoder.graph_encoders[-1](node_vec, cur_adj)
 
-        hidden = self.compute_output(output,
+        hidden = self.compute_hidden(output,
                                      node_mask=node_mask)
-        return output, hidden, (init_adj, cur_raw_adj, cur_adj, raw_node_vec, init_node_vec, node_vec, node_mask)
+        # TODO: Complete hidden
+        return output, hidden, cell_state, (
+            init_adj, cur_raw_adj, cur_adj, raw_node_vec, init_node_vec, node_vec, node_mask)
