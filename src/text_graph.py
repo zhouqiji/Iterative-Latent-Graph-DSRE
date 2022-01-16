@@ -37,13 +37,13 @@ class TextGraph(nn.Module):
         # Text Sentence Embedding
         self.ctx_encoder = lang_encoder
 
-        self.linear_out = nn.Linear(self.graph_hid_dim, self.graph_out_dim)
+        self.linear_out = nn.Linear(self.graph_out_dim, self.graph_out_dim)
 
         if self.graph_module == 'gcn':
             gcn_module = GCN
             self.encoder = gcn_module(nfeat=self.enc_dim,
                                       nhid=self.graph_hid_dim,
-                                      nclass=self.graph_hid_dim,
+                                      nclass=self.graph_out_dim,
                                       graph_hops=config['graph_hops'],
                                       dropout=self.dropout,
                                       batch_norm=self.graph_batch_norm)
@@ -102,8 +102,9 @@ class TextGraph(nn.Module):
     def compute_hidden(self, node_vec, node_mask=None):
         output = self.graph_maxpool(node_vec.transpose(-1, -2), node_mask=node_mask)
         # output = self.linear_out(output)
+        output = F.dropout(output, self.dropout)
         # output = F.log_softmax(output, dim=-1)
-        return F.relu(output)
+        return torch.relu(output)
 
     def graph_maxpool(self, node_vec, node_mask=None):
         graph_embed = F.max_pool1d(node_vec, kernel_size=node_vec.size(-1)).squeeze(-1)
@@ -152,5 +153,4 @@ class TextGraph(nn.Module):
         hidden = self.compute_hidden(output,
                                      node_mask=node_mask)
         # TODO: Complete hidden
-        return output, hidden, cell_state, (
-            init_adj, cur_raw_adj, cur_adj, raw_node_vec, init_node_vec, node_vec, node_mask)
+        return output, hidden, (init_adj, cur_raw_adj, cur_adj, raw_node_vec, init_node_vec, node_vec, node_mask)

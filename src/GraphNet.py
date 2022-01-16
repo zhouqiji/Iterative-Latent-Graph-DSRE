@@ -262,7 +262,7 @@ class GraphNet(BaseNet):
         ##########################
         # Graph Encoder
         ##########################
-        graph_out, graph_hid, cell_state, graph_features = self.graph_encoder(x_vec, batch['sent_len'])
+        graph_out, graph_hid, graph_features = self.graph_encoder(x_vec, batch['sent_len'])
 
         ##########################
         # Argument Representation
@@ -303,6 +303,7 @@ class GraphNet(BaseNet):
 
             # sentence representation
             sent_rep = torch.cat([graph_hid, arg1, arg2], dim=1)
+            # sent_rep = graph_hid + arg1 + arg2
 
         # Sentence per bag
         sent_rep = pad_sequence(torch.split(sent_rep, batch['bag_size'].tolist(), dim=0),
@@ -311,19 +312,15 @@ class GraphNet(BaseNet):
 
         # TODO: Simple verison
         # Sentence-level Attention
-        # sent_rep = self.reduction(sent_rep)
-        # sent_rep = self.sentence_attention(sent_rep, batch['bag_size'], self.r_embed.embedding.weight.data)
+        sent_rep = self.reduction(sent_rep)
+        sent_rep = self.sentence_attention(sent_rep, batch['bag_size'], self.r_embed.embedding.weight.data)
 
         # ######################
         # ## Classification
         # ######################
-        # sent_rep = self.out_drop(sent_rep)
-        # sent_rep = self.dim2rel(sent_rep)  # tie embeds
-        # sent_rep = sent_rep.diagonal(dim1=1, dim2=2)  # take probs based on relations query vector
         sent_rep = self.out_drop(sent_rep)
-        sent_rep = self.dim2rel(sent_rep)
-        # sent_rep = sent_rep.sum(-2)
-        # sent_rep = F.log_softmax(sent_rep, dim=-1)
+        sent_rep = self.dim2rel(sent_rep)  # tie embeds
+        sent_rep = sent_rep.diagonal(dim1=1, dim2=2)  # take probs based on relations query vector
 
         rel_probs, task_loss, _ = self.calc_task_loss(sent_rep, batch['rel'])
 
@@ -412,23 +409,22 @@ class GraphNet(BaseNet):
 
                 # sentence representation
                 tmp_output_sent = torch.cat([tmp_hidden, arg1, arg2], dim=1)
+                # tmp_output_sent = tmp_hidden + arg1 + arg2
 
             # Sentence per bag
             tmp_output = pad_sequence(torch.split(tmp_output_sent, batch['bag_size'].tolist(), dim=0),
                                       batch_first=True,
                                       padding_value=0)
             # TODO: simple version
-            # tmp_output = self.reduction(tmp_output)
-            # tmp_output = self.sentence_attention(tmp_output, batch['bag_size'], self.r_embed.embedding.weight.data)
+            tmp_output = self.reduction(tmp_output)
+            tmp_output = self.sentence_attention(tmp_output, batch['bag_size'], self.r_embed.embedding.weight.data)
 
             #####################
             # Classification
             #####################
             tmp_output = self.out_drop(tmp_output)
             tmp_output = self.dim2rel(tmp_output)  # tie embeds
-            # tmp_output = tmp_output.sum(-2)
-            # tmp_output = F.log_softmax(tmp_output, dim=-1)
-            # tmp_output = tmp_output.diagonal(dim1=1, dim2=2)  # take probs based on relations query vector
+            tmp_output = tmp_output.diagonal(dim1=1, dim2=2)  # take probs based on relations query vector
             batch_all_outputs.append(tmp_output.unsqueeze(1))
 
             _, tmp_loss, _ = self.calc_task_loss(tmp_output, batch['rel'])
