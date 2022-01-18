@@ -327,8 +327,8 @@ class GraphNet(BaseNet):
         # # TODO: Iterative Graph Learning
         init_adj, cur_raw_adj, cur_adj, raw_node_vec, init_node_vec, node_vec, node_mask = graph_features
 
-        # if self.config['graph_learn'] and self.config['graph_learn_regularization']:
-        #     task_loss += self.add_batch_graph_loss(cur_raw_adj, raw_node_vec)
+        if self.config['graph_learn'] and self.config['graph_learn_regularization']:
+            task_loss += self.add_batch_graph_loss(cur_raw_adj, raw_node_vec)
 
         first_raw_adj, first_adj = cur_raw_adj, cur_adj
 
