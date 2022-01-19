@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.nn.utils.rnn import pad_sequence
 
 from modules.gnn import GCN
 from modules.graphlearn import GraphLearner, get_binarized_kneighbors_graph
@@ -12,7 +13,7 @@ from helpers.common import *
 
 
 class TextGraph(nn.Module):
-    def __init__(self, config, lang_encoder=None):
+    def __init__(self, config, lang_encoder=None, num_rel=0):
         super(TextGraph, self).__init__()
         self.config = config
         self.name = 'TextGraph'
@@ -33,10 +34,12 @@ class TextGraph(nn.Module):
         self.enc_dim = config['enc_dim']
         self.graph_hid_dim = config['graph_hid_dim']
         self.graph_out_dim = config['graph_out_dim']
-        self.output_rel_dim = config['rel_embed_dim']
+        self.output_rel_dim = num_rel
 
         # Text Sentence Embedding
         self.ctx_encoder = lang_encoder
+
+        self.linear_out = nn.Linear(self.graph_out_dim, self.output_rel_dim)
 
         if self.graph_module == 'gcn':
             gcn_module = GCN
@@ -98,10 +101,14 @@ class TextGraph(nn.Module):
             adj = init_adj
             return raw_adj, adj
 
-    def compute_output(self, output_vec, linear_out, node_mask=None):
+    def compute_output(self, output_vec, bag_size, node_mask=None):
 
         output = self.graph_maxpool(output_vec.transpose(-1, -2))
-        output = linear_out(output)
+        output = pad_sequence(torch.split(output, bag_size.tolist(), dim=0),
+                              batch_first=True,
+                              padding_value=0)
+        output = output.sum(-2)
+        output = self.linear_out(output)
         output = F.log_softmax(output, dim=-1)
         return output
 

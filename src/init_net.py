@@ -41,7 +41,7 @@ class BaseNet(nn.Module):
                                   freeze=config['freeze_words'])
 
         self.r_embed = EmbedLayer(num_embeddings=len(vocabs['r_vocab']),
-                                  embedding_dim=config['rel_embed_dim'] * 3)
+                                  embedding_dim=config['rel_embed_dim'])
 
         self.p_embed = EmbedLayer(num_embeddings=vocabs['p_vocab'].n_pos,
                                   embedding_dim=config['pos_embed_dim'],
@@ -54,8 +54,7 @@ class BaseNet(nn.Module):
                                         device=self.device,
                                         action='sum')
 
-
-        self.graph_encoder = TextGraph(config=config, lang_encoder=self.lang_encoder)
+        self.graph_encoder = TextGraph(config=config, lang_encoder=self.lang_encoder, num_rel=len(vocabs['r_vocab']))
 
         # TODO: Selective Attention, Needed?
         self.sentence_attention = SelectiveAttention(device=self.device)
@@ -63,7 +62,7 @@ class BaseNet(nn.Module):
         self.rel_flatten = nn.Flatten(1, -1)
 
         self.dim2rel = nn.Linear(in_features=config['graph_out_dim'], out_features=len(vocabs['r_vocab']))
-        self.dim2rel.weight = self.r_embed.embedding.weight
+        # self.dim2rel.weight = self.r_embed.embedding.weight
 
         # task loss
         self.task_loss = nn.BCEWithLogitsLoss(reduction='none')

@@ -297,14 +297,14 @@ class GraphNet(BaseNet):
 
             # sentence representation
             # sent_rep = torch.cat([graph_hid, arg1, arg2], dim=1)
-            sent_rep = self.graph_encoder.compute_output(graph_out, self.dim2rel)
+            sent_rep = self.graph_encoder.compute_output(graph_out, batch['bag_size'])
 
         # Sentence per bag
-        sent_rep = pad_sequence(torch.split(sent_rep, batch['bag_size'].tolist(), dim=0),
-                                batch_first=True,
-                                padding_value=0)
+        # sent_rep = pad_sequence(torch.split(sent_rep, batch['bag_size'].tolist(), dim=0),
+        #                         batch_first=True,
+        #                         padding_value=0)
 
-        sent_rep = self.graph_encoder.compute_output(sent_rep, self.dim2rel)
+        # sent_rep = self.graph_encoder.compute_output(sent_rep, self.dim2rel)
 
         # TODO: Simple verison
         # Sentence-level Attention
@@ -369,9 +369,9 @@ class GraphNet(BaseNet):
             tmp_output = self.graph_encoder.encoder.graph_encoders[-1](node_vec, cur_adj)
             # TODO: Simple version
             # tmp_hidden = self.graph_encoder.compute_hidden(tmp_output, node_mask=node_mask)
-            tmp_hidden = self.graph_encoder.graph_maxpool(tmp_output.transpose(-1, -2), node_mask=node_mask)
+            # tmp_hidden = self.graph_encoder.graph_maxpool(tmp_output.transpose(-1, -2), node_mask=node_mask)
 
-            tmp_arg1, tmp_arg2 = self.merge_tokens(tmp_output, batch['mentions'])
+            # tmp_arg1, tmp_arg2 = self.merge_tokens(tmp_output, batch['mentions'])
 
             #####################
             # Reconstruction
@@ -406,17 +406,17 @@ class GraphNet(BaseNet):
                 mu_ = torch.zeros((graph_out.size(0), self.config['latent_dim'])).to(self.device)
 
                 # sentence representation
-                tmp_output_sent = torch.cat([tmp_hidden, arg1, arg2], dim=1)
-                # tmp_output_sent = tmp_hidden + arg1 + arg2
+                # tmp_output_sent = torch.cat([tmp_hidden, arg1, arg2], dim=1)
+                tmp_output = self.graph_encoder.compute_output(tmp_output, batch['bag_size'])
 
             # Sentence per bag
-            tmp_output = pad_sequence(torch.split(tmp_output_sent, batch['bag_size'].tolist(), dim=0),
-                                      batch_first=True,
-                                      padding_value=0)
+            # tmp_output = pad_sequence(torch.split(tmp_output_sent, batch['bag_size'].tolist(), dim=0),
+            #                           batch_first=True,
+            #                           padding_value=0)
             # TODO: simple version
             # tmp_output = self.reduction(tmp_output)
             # tmp_output = self.sentence_attention(tmp_output, batch['bag_size'], self.r_embed.embedding.weight.data)
-            tmp_output = self.graph_encoder.compute_output(tmp_output, self.dim2rel)
+            # tmp_output = self.graph_encoder.compute_output(tmp_output, self.dim2rel)
 
             #####################
             # Classification
