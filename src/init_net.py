@@ -54,6 +54,7 @@ class BaseNet(nn.Module):
                                         device=self.device,
                                         action='sum')
 
+
         self.graph_encoder = TextGraph(config=config, lang_encoder=self.lang_encoder)
 
         # TODO: Selective Attention, Needed?
@@ -61,12 +62,11 @@ class BaseNet(nn.Module):
 
         self.rel_flatten = nn.Flatten(1, -1)
 
-        self.dim2rel = nn.Linear(in_features=config['rel_embed_dim'] * 3, out_features=len(vocabs['r_vocab']))
+        self.dim2rel = nn.Linear(in_features=config['graph_out_dim'], out_features=len(vocabs['r_vocab']))
         self.dim2rel.weight = self.r_embed.embedding.weight
 
         # task loss
-        # self.task_loss = nn.BCEWithLogitsLoss(reduction='none')
-        self.task_loss = F.nll_loss
+        self.task_loss = nn.BCEWithLogitsLoss(reduction='none')
 
         if self.config['reconstruction']:
             self.hid2mu = nn.Linear(2 * config['enc_dim'], config['latent_dim'])

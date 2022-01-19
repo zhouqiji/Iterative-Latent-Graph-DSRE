@@ -1,4 +1,5 @@
 from .rnn import *
+import torch.nn.functional as F
 
 class LSTMEncoder(nn.Module):
     def __init__(self, in_features, h_enc_dim, layers_num, dir2, device, action='concat'):
@@ -128,3 +129,6 @@ class LSTMDecoder(nn.Module):
 
         output, (h_state, c_state) = self.net(y, hidden=h_state, lengths=len_)
         return output, (h_state, c_state)
+
+
+

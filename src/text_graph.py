@@ -98,12 +98,10 @@ class TextGraph(nn.Module):
             adj = init_adj
             return raw_adj, adj
 
-    def compute_output(self, output_vec, linear_out):
+    def compute_output(self, output_vec, linear_out, node_mask=None):
 
         output = self.graph_maxpool(output_vec.transpose(-1, -2))
-
         output = linear_out(output)
-        output = F.dropout(output, self.dropout)
         output = F.log_softmax(output, dim=-1)
         return output
 
@@ -132,14 +130,37 @@ class TextGraph(nn.Module):
                                          mask=context_mask)
         return raw_context_vec, context_vec, context_mask, init_adj, hidden, cell_state
 
-    def forward(self, context_vec, context_len):
+    def merge_tokens(self, enc_seq, mentions):
+        """
+        Merge tokens into mentions;
+        Find which tokens belong to a mention (based on start-end ids) and average them
+        """
+        start1, end1, w_ids1 = torch.broadcast_tensors(mentions[:, 0].unsqueeze(-1),
+                                                       mentions[:, 1].unsqueeze(-1),
+                                                       torch.arange(0, enc_seq.shape[1]).unsqueeze(0).to(self.device))
+
+        start2, end2, w_ids2 = torch.broadcast_tensors(mentions[:, 2].unsqueeze(-1),
+                                                       mentions[:, 3].unsqueeze(-1),
+                                                       torch.arange(0, enc_seq.shape[1]).unsqueeze(0).to(self.device))
+
+        index_t1 = (torch.ge(w_ids1, start1) & torch.le(w_ids1, end1)).float().to(self.device).unsqueeze(1)
+        index_t2 = (torch.ge(w_ids2, start2) & torch.le(w_ids2, end2)).float().to(self.device).unsqueeze(1)
+
+        arg1 = torch.div(torch.matmul(index_t1, enc_seq), torch.sum(index_t1, dim=2).unsqueeze(-1)).squeeze(1)  # avg
+        arg2 = torch.div(torch.matmul(index_t2, enc_seq), torch.sum(index_t2, dim=2).unsqueeze(-1)).squeeze(1)  # avg
+        return arg1, arg2
+
+    def forward(self, context_vec, context_len, mentions):
         # Prepare init node embedding, init adj
         raw_context_vec, context_vec, context_mask, init_adj, enc_hidden, cell_state = self.prepare_init_graph(
             context_vec, context_len)
 
+        arg1, arg2 = self.merge_tokens(context_vec, mentions)  # contextualised representations of argument
+        context_vec = context_vec + arg1.unsqueeze(dim=-2) + arg2.unsqueeze(dim=-2)
+
         # Init
         raw_node_vec = raw_context_vec  # word embedding
-        init_node_vec = (context_vec + enc_hidden.unsqueeze(-2) + cell_state.unsqueeze(-2))  # hidden embedding
+        init_node_vec = context_vec  # hidden embedding
         node_mask = context_mask
 
         cur_raw_adj, cur_adj = self.learn_graph(self.graph_learner, raw_node_vec, self.graph_skip_conn,
@@ -156,8 +177,10 @@ class TextGraph(nn.Module):
 
         # Graph Output
         output = self.encoder.graph_encoders[-1](node_vec, cur_adj)
-        hidden = self.graph_maxpool(output.transpose(-1, -2), node_mask=node_mask)
+        # output = self.compute_output(output, node_mask=node_mask)
+        # hidden = self.graph_maxpool(output.transpose(-1, -2), node_mask=node_mask)
+        # hidden = F.dropout(hidden, self.dropout, training=self.training)
 
         # hidden = self.compute_output(output, node_mask=node_mask)
         # TODO: Complete hidden
-        return output, hidden, (init_adj, cur_raw_adj, cur_adj, raw_node_vec, init_node_vec, node_vec, node_mask)
+        return output, (init_adj, cur_raw_adj, cur_adj, raw_node_vec, init_node_vec, node_vec, node_mask)

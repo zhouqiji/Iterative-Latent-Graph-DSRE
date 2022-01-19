@@ -256,13 +256,13 @@ class GraphNet(BaseNet):
         ##########################
         # Graph Encoder
         ##########################
-        graph_out, graph_hid, graph_features = self.graph_encoder(x_vec, batch['sent_len'])
+        graph_out,  graph_features = self.graph_encoder(x_vec, batch['sent_len'], batch['mentions'])
 
         ##########################
         # Argument Representation
         ##########################
 
-        arg1, arg2 = self.merge_tokens(graph_out, batch['mentions'])  # contextualised representations of argument
+        # arg1, arg2 = self.merge_tokens(graph_out, batch['mentions'])  # contextualised representations of argument
 
         #####################
         # Reconstruction
@@ -296,7 +296,8 @@ class GraphNet(BaseNet):
             mu_ = torch.zeros((graph_out.size(0), self.config['latent_dim'])).to(self.device)
 
             # sentence representation
-            sent_rep = torch.cat([graph_hid, arg1, arg2], dim=1)
+            # sent_rep = torch.cat([graph_hid, arg1, arg2], dim=1)
+            sent_rep = self.graph_encoder.compute_output(graph_out, self.dim2rel)
 
         # Sentence per bag
         sent_rep = pad_sequence(torch.split(sent_rep, batch['bag_size'].tolist(), dim=0),
