@@ -184,10 +184,9 @@ class GraphNet(BaseNet):
         return kld
 
     def calc_task_loss(self, rel_logits, target):
-        target = target.max(dim=-1).indices
-        task_loss = self.task_loss(rel_logits, target)  # (examples, categories)
-        # tsk_laoss = torch.sum(task_loss, dim=1)
-        # task_loss = torch.mean(task_loss)  # sum across relations, mean over batch
+        task_loss = self.task_loss(rel_logits, target.type_as(rel_logits))  # (examples, categories)
+        task_loss = torch.sum(task_loss, dim=1)
+        task_loss = torch.mean(task_loss)  # sum across relations, mean over batch
         rel_probs = torch.sigmoid(rel_logits)
 
         # Get the score
