@@ -33,11 +33,10 @@ class TextGraph(nn.Module):
         self.enc_dim = config['enc_dim']
         self.graph_hid_dim = config['graph_hid_dim']
         self.graph_out_dim = config['graph_out_dim']
+        self.output_rel_dim = config['rel_embed_dim']
 
         # Text Sentence Embedding
         self.ctx_encoder = lang_encoder
-
-        self.linear_out = nn.Linear(self.graph_out_dim, self.graph_out_dim)
 
         if self.graph_module == 'gcn':
             gcn_module = GCN
@@ -99,12 +98,20 @@ class TextGraph(nn.Module):
             adj = init_adj
             return raw_adj, adj
 
-    def compute_hidden(self, node_vec, node_mask=None):
-        output = self.graph_maxpool(node_vec.transpose(-1, -2), node_mask=node_mask)
-        # output = self.linear_out(output)
+    def compute_output(self, output_vec, linear_out):
+
+        output = self.graph_maxpool(output_vec.transpose(-1, -2))
+
+        output = linear_out(output)
         output = F.dropout(output, self.dropout)
-        # output = F.log_softmax(output, dim=-1)
-        return torch.relu(output)
+        output = F.log_softmax(output, dim=-1)
+        return output
+
+    def mask_output(self, bag, bag_size):
+        # mask padding elements
+        tmp = torch.arange(bag.size(1)).repeat(bag.size(0), 1).unsqueeze(-1).to(self.device)
+        mask = torch.lt(tmp, bag_size[:, None, None].repeat(1, tmp.size(1), 1))
+        return mask
 
     def graph_maxpool(self, node_vec, node_mask=None):
         graph_embed = F.max_pool1d(node_vec, kernel_size=node_vec.size(-1)).squeeze(-1)
@@ -149,8 +156,8 @@ class TextGraph(nn.Module):
 
         # Graph Output
         output = self.encoder.graph_encoders[-1](node_vec, cur_adj)
+        hidden = self.graph_maxpool(output.transpose(-1, -2), node_mask=node_mask)
 
-        hidden = self.compute_hidden(output,
-                                     node_mask=node_mask)
+        # hidden = self.compute_output(output, node_mask=node_mask)
         # TODO: Complete hidden
         return output, hidden, (init_adj, cur_raw_adj, cur_adj, raw_node_vec, init_node_vec, node_vec, node_mask)

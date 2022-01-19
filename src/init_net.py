@@ -41,7 +41,7 @@ class BaseNet(nn.Module):
                                   freeze=config['freeze_words'])
 
         self.r_embed = EmbedLayer(num_embeddings=len(vocabs['r_vocab']),
-                                  embedding_dim=config['rel_embed_dim'])
+                                  embedding_dim=config['rel_embed_dim'] * 3)
 
         self.p_embed = EmbedLayer(num_embeddings=vocabs['p_vocab'].n_pos,
                                   embedding_dim=config['pos_embed_dim'],
@@ -65,7 +65,8 @@ class BaseNet(nn.Module):
         self.dim2rel.weight = self.r_embed.embedding.weight
 
         # task loss
-        self.task_loss = nn.BCEWithLogitsLoss(reduction='none')
+        # self.task_loss = nn.BCEWithLogitsLoss(reduction='none')
+        self.task_loss = F.nll_loss
 
         if self.config['reconstruction']:
             self.hid2mu = nn.Linear(2 * config['enc_dim'], config['latent_dim'])
