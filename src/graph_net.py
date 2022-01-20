@@ -446,14 +446,14 @@ class GraphNet(BaseNet):
             loss = torch.mean(loss / batch_last_iters.float()) + task_loss
             # batch_all_outputs = torch.cat(batch_all_outputs, 1)
             # selected_iter_index = batch_last_iters.long().unsqueeze(-1) - 1
-
+            #
             # if len(batch_all_outputs.shape) == 3:
             #     selected_iter_index = selected_iter_index.unsqueeze(-1).expand(-1, -1, batch_all_outputs.size(-1))
             #     output = batch_all_outputs.gather(1, selected_iter_index).squeeze(1)
             # else:
             #     output = batch_all_outputs.gather(1, selected_iter_index)
             #
-            # _, _, score = self.calc_task_loss(output.detach().cpu(), batch['rel'].cpu())
+            # rel_probs,  = self.calc_task_loss(output.detach().cpu(), batch['rel'].cpu())
         else:
             loss = task_loss
 

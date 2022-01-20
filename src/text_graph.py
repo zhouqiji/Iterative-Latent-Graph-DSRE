@@ -107,9 +107,9 @@ class TextGraph(nn.Module):
         output = pad_sequence(torch.split(output, bag_size.tolist(), dim=0),
                               batch_first=True,
                               padding_value=0)
-        output = output.sum(-2)
+        # output = output.sum(-2)
+        output = self.graph_maxpool(output.transpose(-1, -2))
         output = self.linear_out(output)
-        output = F.log_softmax(output, dim=-1)
         return output
 
     def mask_output(self, bag, bag_size):
