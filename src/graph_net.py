@@ -367,7 +367,7 @@ class GraphNet(BaseNet):
                 node_vec = torch.relu(encoder(node_vec, cur_adj))
                 node_vec = F.dropout(node_vec, self.config['gl_dropout'], training=self.training)
 
-            tmp_output = self.graph_encoder.encoder.graph_encoders[-1](node_vec, cur_adj)
+            tmp_output_sent = self.graph_encoder.encoder.graph_encoders[-1](node_vec, cur_adj)
             # TODO: Simple version
             # tmp_hidden = self.graph_encoder.compute_hidden(tmp_output, node_mask=node_mask)
             # tmp_hidden = self.graph_encoder.graph_maxpool(tmp_output.transpose(-1, -2), node_mask=node_mask)
@@ -408,7 +408,7 @@ class GraphNet(BaseNet):
 
                 # sentence representation
                 # tmp_output_sent = torch.cat([tmp_hidden, arg1, arg2], dim=1)
-                tmp_output = self.graph_encoder.compute_output(tmp_output, batch['bag_size'])
+                tmp_output = self.graph_encoder.compute_output(tmp_output_sent, batch['bag_size'])
 
             # Sentence per bag
             # tmp_output = pad_sequence(torch.split(tmp_output_sent, batch['bag_size'].tolist(), dim=0),
@@ -425,7 +425,7 @@ class GraphNet(BaseNet):
             # tmp_output = self.out_drop(tmp_output)
             # tmp_output = self.dim2rel(tmp_output)  # tie embeds
             # tmp_output = tmp_output.diagonal(dim1=1, dim2=2)  # take probs based on relations query vector
-            batch_all_outputs.append(tmp_output.unsqueeze(1))
+            batch_all_outputs.append(tmp_output_sent.unsqueeze(1))
 
             _, tmp_loss = self.calc_task_loss(tmp_output, batch['rel'])
             if len(tmp_loss.shape) == 2:
@@ -447,15 +447,17 @@ class GraphNet(BaseNet):
         if iter_ > 0:
             loss = torch.mean(loss / batch_last_iters.float()) + task_loss
 
-            # batch_all_outputs = torch.cat(batch_all_outputs, 1)
-            # selected_iter_index = batch_last_iters.long().unsqueeze(-1) - 1
-            # if len(batch_all_outputs.shape) == 3:
-            #     selected_iter_index = selected_iter_index.unsqueeze(-1).expand(-1, -1, batch_all_outputs.size(-1))
-            #     output = batch_all_outputs.gather(1, selected_iter_index).squeeze(1)
-            # else:
-            #     output = batch_all_outputs.gather(1, selected_iter_index)
+            batch_all_outputs = torch.cat(batch_all_outputs, 1)
+            selected_iter_index = batch_last_iters.long().unsqueeze(-1) - 1
+            if len(batch_all_outputs.shape) == 4:
+                selected_iter_index = selected_iter_index.unsqueeze(-1).expand(-1, batch_all_outputs.size(-2),
+                                                                               batch_all_outputs.size(-1)).unsqueeze(1)
+                output = batch_all_outputs.gather(1, selected_iter_index).squeeze(1)
+            else:
+                output = batch_all_outputs.gather(1, selected_iter_index)
 
-            # rel_probs, _ = self.calc_task_loss(output.cpu(), batch['rel'].cpu())
+            output = self.graph_encoder.compute_output(output, batch['bag_size'])
+            rel_probs, _ = self.calc_task_loss(output, batch['rel'])
         else:
             loss = task_loss
 
