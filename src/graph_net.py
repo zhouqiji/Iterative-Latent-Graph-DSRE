@@ -339,9 +339,9 @@ class GraphNet(BaseNet):
         iter_ = 0
 
         # Indicate the last iteration umber for each example
-        batch_last_iters = torch.zeros(batch['rel'].size(0), dtype=torch.uint8, device=self.device)
+        batch_last_iters = torch.zeros(batch['source'].size(0), dtype=torch.uint8, device=self.device)
         # Indicate either an xample is in ongoing state (i.e., 1) or stopping state (i.e., 0)
-        batch_stop_indicators = torch.ones(batch['rel'].size(0), dtype=torch.uint8, device=self.device)
+        batch_stop_indicators = torch.ones(batch['source'].size(0), dtype=torch.uint8, device=self.device)
         batch_all_outputs = []
 
         while self.config['graph_learn'] and (
@@ -436,32 +436,26 @@ class GraphNet(BaseNet):
             if self.config['graph_learn'] and self.config['graph_learn_regularization']:
                 tmp_graph_loss = self.add_batch_graph_loss(cur_raw_adj, raw_node_vec,
                                                            keep_batch_dim=True)
-                tmp_graph_loss = pad_sequence(torch.split(tmp_graph_loss, batch['bag_size'].tolist(), dim=0),
-                                              batch_first=True,
-                                              padding_value=0).sum(-1)
                 loss += batch_stop_indicators.float() * tmp_graph_loss
 
             if self.config['graph_learn'] and not self.config['graph_learn_ratio'] in (None, 0):
                 loss += batch_stop_indicators.float() * self.batch_SquaredFrobeniusNorm(cur_adj - pre_raw_adj) * \
                         self.config['graph_learn_ratio']
             tmp_stop_criteria = self.batch_diff(cur_raw_adj, pre_raw_adj, first_raw_adj) > eps_adj
-            tmp_stop_criteria = pad_sequence(torch.split(tmp_stop_criteria, batch['bag_size'].tolist(), dim=0),
-                                             batch_first=True,
-                                             padding_value=0).sum(-1)
             batch_stop_indicators = batch_stop_indicators * tmp_stop_criteria
 
         if iter_ > 0:
             loss = torch.mean(loss / batch_last_iters.float()) + task_loss
-            batch_all_outputs = torch.cat(batch_all_outputs, 1)
-            selected_iter_index = batch_last_iters.long().unsqueeze(-1) - 1
 
-            if len(batch_all_outputs.shape) == 3:
-                selected_iter_index = selected_iter_index.unsqueeze(-1).expand(-1, -1, batch_all_outputs.size(-1))
-                output = batch_all_outputs.gather(1, selected_iter_index).squeeze(1)
-            else:
-                output = batch_all_outputs.gather(1, selected_iter_index)
+            # batch_all_outputs = torch.cat(batch_all_outputs, 1)
+            # selected_iter_index = batch_last_iters.long().unsqueeze(-1) - 1
+            # if len(batch_all_outputs.shape) == 3:
+            #     selected_iter_index = selected_iter_index.unsqueeze(-1).expand(-1, -1, batch_all_outputs.size(-1))
+            #     output = batch_all_outputs.gather(1, selected_iter_index).squeeze(1)
+            # else:
+            #     output = batch_all_outputs.gather(1, selected_iter_index)
 
-            rel_probs, _ = self.calc_task_loss(output.detach().cpu(), batch['rel'].cpu())
+            # rel_probs, _ = self.calc_task_loss(output.cpu(), batch['rel'].cpu())
         else:
             loss = task_loss
 
