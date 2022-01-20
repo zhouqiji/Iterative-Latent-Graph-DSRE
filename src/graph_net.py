@@ -300,28 +300,12 @@ class GraphNet(BaseNet):
             # sent_rep = torch.cat([graph_hid, arg1, arg2], dim=1)
             sent_rep = self.graph_encoder.compute_output(graph_out, batch['bag_size'])
 
-        # Sentence per bag
-        # sent_rep = pad_sequence(torch.split(sent_rep, batch['bag_size'].tolist(), dim=0),
-        #                         batch_first=True,
-        #                         padding_value=0)
-
-        # sent_rep = self.graph_encoder.compute_output(sent_rep, self.dim2rel)
-
-        # TODO: Simple verison
-        # Sentence-level Attention
-        # sent_rep = self.reduction(sent_rep)
-        # sent_rep = self.sentence_attention(sent_rep, batch['bag_size'], self.r_embed.embedding.weight.data)
-
         # ######################
         # ## Classification
         # ######################
-        # sent_rep = self.out_drop(sent_rep)
-        # sent_rep = self.dim2rel(sent_rep)  # tie embeds
-        # sent_rep = sent_rep.diagonal(dim1=1, dim2=2)  # take probs based on relations query vector
 
         rel_probs, task_loss = self.calc_task_loss(sent_rep, batch['rel'])
 
-        # # TODO: Iterative Graph Learning
         init_adj, cur_raw_adj, cur_adj, raw_node_vec, init_node_vec, node_vec, node_mask = graph_features
 
         if self.config['graph_learn'] and self.config['graph_learn_regularization']:
@@ -329,6 +313,7 @@ class GraphNet(BaseNet):
 
         first_raw_adj, first_adj = cur_raw_adj, cur_adj
 
+        # TODO: Complete the max_iter choice process
         # Simper version
         max_iter = self.config['graph_learn_max_iter']
 
@@ -368,11 +353,6 @@ class GraphNet(BaseNet):
                 node_vec = F.dropout(node_vec, self.config['gl_dropout'], training=self.training)
 
             tmp_output_sent = self.graph_encoder.encoder.graph_encoders[-1](node_vec, cur_adj)
-            # TODO: Simple version
-            # tmp_hidden = self.graph_encoder.compute_hidden(tmp_output, node_mask=node_mask)
-            # tmp_hidden = self.graph_encoder.graph_maxpool(tmp_output.transpose(-1, -2), node_mask=node_mask)
-
-            # tmp_arg1, tmp_arg2 = self.merge_tokens(tmp_output, batch['mentions'])
 
             #####################
             # Reconstruction
