@@ -313,7 +313,7 @@ class GraphNet(BaseNet):
 
         first_raw_adj, first_adj = cur_raw_adj, cur_adj
 
-        # TODO: Complete the max_iter choice process
+        # TODO: Complete the max_iter choice process train and test
         # Simper version
         max_iter = self.config['graph_learn_max_iter']
 
