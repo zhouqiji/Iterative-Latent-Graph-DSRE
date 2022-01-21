@@ -315,7 +315,10 @@ class GraphNet(BaseNet):
 
         # TODO: Complete the max_iter choice process train and test
         # Simper version
-        max_iter = self.config['graph_learn_max_iter']
+        if self.training:
+            max_iter = self.config['graph_learn_max_iter']
+        else:
+            max_iter = self.config['graph_learn_max_iter'] * 2
 
         eps_adj = float(self.config['eps_adj'])
 
