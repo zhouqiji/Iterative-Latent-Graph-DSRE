@@ -68,11 +68,11 @@ degree_ratio: 0.01 # GL: 0.01!
 sparsity_ratio: 0.3 # GL: 0.3!
 graph_learn_ratio: 0 # 0
 input_graph_knn_size: 970 #
-graph_learn_hidden_size: 70 #
+graph_learn_hidden_size: 128 #
 graph_learn_epsilon: 0.3 # GL: 0.3, IGL: 0.3!
 graph_learn_topk: null #
 graph_learn_num_pers: 12 # weighted_cosine: IGL: 12!
-graph_learn_hidden_size2: 70 # kernel: 90, attention: 70
+graph_learn_hidden_size2: 128 # kernel: 90, attention: 70
 graph_learn_epsilon2: 0 # weighted_cosine: 0
 graph_learn_topk2: null # attn-GCN: 140: 64.1, kernel-GCN: 100
 graph_hops: 2
