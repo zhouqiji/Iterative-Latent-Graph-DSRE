@@ -76,7 +76,7 @@ graph_learn_hidden_size2: 70 # kernel: 90, attention: 70
 graph_learn_epsilon2: 0 # weighted_cosine: 0
 graph_learn_topk2: null # attn-GCN: 140: 64.1, kernel-GCN: 100
 graph_hops: 2
-graph_hid_dim: 128
+graph_hid_dim: 64
 graph_out_dim: 128
 graph_learn_max_iter: 4
 eps_adj: 8e-3
