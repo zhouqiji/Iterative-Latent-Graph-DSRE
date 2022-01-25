@@ -41,7 +41,7 @@ cutoff_freq:
 lowercase: True
 primary_metric: pr_auc
 patience: 5
-task_weight: 0.0
+task_weight: 0.8
 
 # FLAGS
 early_stop: True

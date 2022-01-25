@@ -13,7 +13,7 @@ class GVAE(nn.Module):
         self.gc_mu = GCN(hid_dim1, hid_dim2, hid_dim2, 1, dropout)
         self.gc_var = GCN(hid_dim1, hid_dim2, hid_dim2, 1, dropout)
 
-        self.dc = InnerProductDecoder(dropout, act=lambda x: torch.abs(x))
+        self.dc = InnerProductDecoder(dropout)
 
     def encode(self, x, adj):
         hid1 = self.gc_emb(x, adj)
