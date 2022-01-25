@@ -257,7 +257,9 @@ class GraphNet(BaseNet):
         ##########################
         # Graph Encoder
         ##########################
-        graph_out, graph_hid, graph_features = self.graph_encoder(x_vec, batch['sent_len'], batch['mentions'])
+        graph_out, graph_features, reco_features = self.graph_encoder(x_vec, batch['sent_len'], batch['mentions'],
+                                                                      batch['bag_size'])
+        kld, reco_loss, mu_ = reco_features
 
         ##########################
         # Argument Representation
@@ -268,183 +270,200 @@ class GraphNet(BaseNet):
         #####################
         # Reconstruction
         #####################
-        if self.config['reconstruction']:
-
-            new_input = graph_hid
-
-            # create hidden code
-            mu_ = self.hid2mu(new_input)
-            logvar_ = self.hid2var(new_input)
-            latent_z = self.reparameterisation(mu_, logvar_)
-
-            if self.config['priors']:
-                prior_mus_expanded = torch.repeat_interleave(batch['prior_mus'], repeats=batch['bag_size'], dim=0)
-                kld = self.calc_kld(mu_, logvar_, mu_prior=prior_mus_expanded)
-
-            else:
-                kld = self.calc_kld(mu_, logvar_)
-
-            # reconstruction
-            recon_x = self.reconstruction(latent_z, batch)
-            reco_loss = self.calc_reconstruction_loss(recon_x, batch)
-
-            # sentence representation --> use info from VAE !!
-            sent_rep = self.graph_encoder.compute_output(recon_x, batch['bag_size'])
-
-        else:
-            kld = torch.zeros((1,)).to(self.device)
-            reco_loss = {'sum': torch.zeros((1,)).to(self.device),
-                         'mean': torch.zeros((1,)).to(self.device)}
-            mu_ = torch.zeros((graph_out.size(0), self.config['latent_dim'])).to(self.device)
-
-            # sentence representation
-            # sent_rep = torch.cat([graph_hid, arg1, arg2], dim=1)
-            sent_rep = self.graph_encoder.compute_output(graph_out, batch['bag_size'])
+        # if self.config['reconstruction']:
+        #
+        #     new_input = self.graph_encoder.graph_maxpool(graph_out.transpose(-1, -2))
+        #
+        #     # create hidden code
+        #     mu_ = self.hid2mu(new_input)
+        #     logvar_ = self.hid2var(new_input)
+        #     latent_z = self.reparameterisation(mu_, logvar_)
+        #
+        #     if self.config['priors']:
+        #         prior_mus_expanded = torch.repeat_interleave(batch['prior_mus'], repeats=batch['bag_size'], dim=0)
+        #         kld = self.calc_kld(mu_, logvar_, mu_prior=prior_mus_expanded)
+        #
+        #     else:
+        #         kld = self.calc_kld(mu_, logvar_)
+        #
+        #     # reconstruction
+        #     recon_x = self.reconstruction(latent_z, batch)
+        #     reco_loss = self.calc_reconstruction_loss(recon_x, batch)
+        #
+        #     # sentence representation --> use info from VAE !!
+        #     sent_rep = pad_sequence(torch.split(latent_z, batch['bag_size'].tolist(), dim=0),
+        #                             batch_first=True,
+        #                             padding_value=0)
+        #     sent_rep = self.graph_encoder.graph_maxpool(sent_rep.transpose(-1, -2))
+        #     sent_rep = self.graph_encoder.linear_out(sent_rep)
+        #
+        # else:
+        #     kld = torch.zeros((1,)).to(self.device)
+        #     reco_loss = {'sum': torch.zeros((1,)).to(self.device),
+        #                  'mean': torch.zeros((1,)).to(self.device)}
+        #     mu_ = torch.zeros((graph_out.size(0), self.config['latent_dim'])).to(self.device)
+        #
+        #     # sentence representation
+        #     # sent_rep = torch.cat([graph_hid, arg1, arg2], dim=1)
+        #     sent_rep = self.graph_encoder.compute_output(graph_out, batch['bag_size'])
 
         # ######################
         # ## Classification
         # ######################
 
-        rel_probs, task_loss = self.calc_task_loss(sent_rep, batch['rel'])
+        task_rel_probs, task_loss = self.calc_task_loss(graph_out, batch['rel'])
+        graph_loss, tmp_rel_probs = self.graph_encoder.learn_iter_graphs(graph_features,
+                                                                                   batch['source'].size(0),
+                                                                                   batch['bag_size'],
+                                                                                   batch['rel'], self.calc_task_loss)
 
-        init_adj, cur_raw_adj, cur_adj, raw_node_vec, init_node_vec, node_vec, node_mask = graph_features
-
-        if self.config['graph_learn'] and self.config['graph_learn_regularization']:
-            task_loss += self.add_batch_graph_loss(cur_raw_adj, raw_node_vec)
-
-        first_raw_adj, first_adj = cur_raw_adj, cur_adj
-
-        # Simper version
-        if self.training:
-            max_iter = self.config['graph_learn_max_iter']
+        if tmp_rel_probs is not None:
+            rel_probs = tmp_rel_probs
         else:
-            max_iter = self.config['graph_learn_max_iter'] * 2
+            rel_probs = task_rel_probs
 
-        eps_adj = float(self.config['eps_adj'])
+        # TODO: Reformat
+        # init_adj, cur_raw_adj, cur_adj, raw_node_vec, init_node_vec, node_vec, node_mask = graph_features
+        #
+        # if self.config['graph_learn'] and self.config['graph_learn_regularization']:
+        #     task_loss += self.add_batch_graph_loss(cur_raw_adj, raw_node_vec)
+        #
+        # first_raw_adj, first_adj = cur_raw_adj, cur_adj
+        #
+        # # Simper version
+        # if self.training:
+        #     max_iter = self.config['graph_learn_max_iter']
+        # else:
+        #     max_iter = self.config['graph_learn_max_iter'] * 2
+        #
+        # eps_adj = float(self.config['eps_adj'])
+        #
+        # # For graph learning
+        # loss = 0
+        # iter_ = 0
+        #
+        # # Indicate the last iteration umber for each example
+        # batch_last_iters = torch.zeros(batch['source'].size(0), dtype=torch.uint8, device=self.device)
+        # # Indicate either an xample is in ongoing state (i.e., 1) or stopping state (i.e., 0)
+        # batch_stop_indicators = torch.ones(batch['source'].size(0), dtype=torch.uint8, device=self.device)
+        # batch_all_outputs = []
+        #
+        # while self.config['graph_learn'] and (
+        #         iter_ == 0 or torch.sum(batch_stop_indicators).item() > 0) and iter_ < max_iter:
+        #     iter_ += 1
+        #     batch_last_iters += batch_stop_indicators
+        #     pre_raw_adj = cur_raw_adj
+        #     cur_raw_adj, cur_adj = self.graph_encoder.learn_graph(self.graph_encoder.graph_learner2, node_vec,
+        #                                                           self.graph_encoder.graph_skip_conn,
+        #                                                           node_mask=node_mask,
+        #                                                           graph_include_self=self.graph_encoder.graph_include_self,
+        #                                                           init_adj=init_adj)
+        #
+        #     update_adj_ratio = self.config['update_adj_ratio']
+        #     if update_adj_ratio is not None:
+        #         cur_adj = update_adj_ratio * cur_adj + (1 - update_adj_ratio) * first_adj
+        #
+        #     node_vec = torch.relu(self.graph_encoder.encoder.graph_encoders[0](init_node_vec, cur_adj))
+        #     node_vec = F.dropout(node_vec, self.config['gl_dropout'], training=self.training)
+        #
+        #     # Add mid GNN layers if needed
+        #     for encoder in self.graph_encoder.encoder.graph_encoders[1:-1]:
+        #         node_vec = torch.relu(encoder(node_vec, cur_adj))
+        #         node_vec = F.dropout(node_vec, self.config['gl_dropout'], training=self.training)
+        #
+        #     tmp_output_sent = self.graph_encoder.encoder.graph_encoders[-1](node_vec, cur_adj)
+        #     tmp_graph_hid = self.graph_encoder.graph_maxpool(tmp_output_sent.transpose(-1, -2))
+        #
+        #     #####################
+        #     # Reconstruction
+        #     #####################
+        #     if self.config['reconstruction']:
+        #         tmp_new_input = tmp_graph_hid
+        #
+        #         # create hidden code
+        #         tmp_mu_ = self.hid2mu(tmp_new_input)
+        #         tmp_logvar_ = self.hid2var(tmp_new_input)
+        #         tmp_latent_z = self.reparameterisation(tmp_mu_, tmp_logvar_)
+        #
+        #         if self.config['priors']:
+        #             tmp_prior_mus_expanded = torch.repeat_interleave(batch['prior_mus'], repeats=batch['bag_size'],
+        #                                                              dim=0)
+        #             tmp_kld = self.calc_kld(tmp_mu_, tmp_logvar_, mu_prior=tmp_prior_mus_expanded)
+        #
+        #         else:
+        #             tmp_kld = self.calc_kld(tmp_mu_, tmp_logvar_)
+        #
+        #         # reconstruction
+        #         tmp_recon_x = self.reconstruction(tmp_latent_z, batch)
+        #         tmp_reco_loss = self.calc_reconstruction_loss(tmp_recon_x, batch)
+        #         tmp_output = pad_sequence(torch.split(tmp_latent_z, batch['bag_size'].tolist(), dim=0),
+        #                                   batch_first=True,
+        #                                   padding_value=0)
+        #         tmp_output = self.graph_encoder.graph_maxpool(tmp_output.transpose(-1, -2))
+        #         tmp_output = self.graph_encoder.linear_out(tmp_output)
+        #         # sentence representation --> use info from VAE !!
+        #
+        #
+        #     else:
+        #         kld = torch.zeros((1,)).to(self.device)
+        #         reco_loss = {'sum': torch.zeros((1,)).to(self.device),
+        #                      'mean': torch.zeros((1,)).to(self.device)}
+        #         mu_ = torch.zeros((graph_out.size(0), self.config['latent_dim'])).to(self.device)
+        #
+        #         # sentence representation
+        #         # tmp_output_sent = torch.cat([tmp_hidden, arg1, arg2], dim=1)
+        #         tmp_output = self.graph_encoder.compute_output(tmp_output_sent, batch['bag_size'])
+        #
+        #     # Sentence per bag
+        #     # tmp_output = pad_sequence(torch.split(tmp_output_sent, batch['bag_size'].tolist(), dim=0),
+        #     #                           batch_first=True,
+        #     #                           padding_value=0)
+        #     # TODO: simple version
+        #     # tmp_output = self.reduction(tmp_output)
+        #     # tmp_output = self.sentence_attention(tmp_output, batch['bag_size'], self.r_embed.embedding.weight.data)
+        #     # tmp_output = self.graph_encoder.compute_output(tmp_output, self.dim2rel)
+        #
+        #     #####################
+        #     # Classification
+        #     #####################
+        #     # tmp_output = self.out_drop(tmp_output)
+        #     # tmp_output = self.dim2rel(tmp_output)  # tie embeds
+        #     # tmp_output = tmp_output.diagonal(dim1=1, dim2=2)  # take probs based on relations query vector
+        #     batch_all_outputs.append(tmp_output_sent.unsqueeze(1))
+        #
+        #     _, tmp_loss = self.calc_task_loss(tmp_output, batch['rel'])
+        #     if len(tmp_loss.shape) == 2:
+        #         tmp_loss = torch.mean(tmp_loss, 1)
+        #
+        #     loss += batch_stop_indicators.float() * tmp_loss
+        #
+        #     if self.config['graph_learn'] and self.config['graph_learn_regularization']:
+        #         tmp_graph_loss = self.add_batch_graph_loss(cur_raw_adj, raw_node_vec,
+        #                                                    keep_batch_dim=True)
+        #         loss += batch_stop_indicators.float() * tmp_graph_loss
+        #
+        #     if self.config['graph_learn'] and not self.config['graph_learn_ratio'] in (None, 0):
+        #         loss += batch_stop_indicators.float() * self.batch_SquaredFrobeniusNorm(cur_adj - pre_raw_adj) * \
+        #                 self.config['graph_learn_ratio']
+        #     tmp_stop_criteria = self.batch_diff(cur_raw_adj, pre_raw_adj, first_raw_adj) > eps_adj
+        #     batch_stop_indicators = batch_stop_indicators * tmp_stop_criteria
+        #
+        # if iter_ > 0:
+        #     loss = torch.mean(loss / batch_last_iters.float()) + task_loss
+        #
+        #     batch_all_outputs = torch.cat(batch_all_outputs, 1)
+        #     selected_iter_index = batch_last_iters.long().unsqueeze(-1) - 1
+        #     if len(batch_all_outputs.shape) == 4:
+        #         selected_iter_index = selected_iter_index.unsqueeze(-1).expand(-1, batch_all_outputs.size(-2),
+        #                                                                        batch_all_outputs.size(-1)).unsqueeze(1)
+        #         output = batch_all_outputs.gather(1, selected_iter_index).squeeze(1)
+        #     else:
+        #         output = batch_all_outputs.gather(1, selected_iter_index)
+        #
+        #     output = self.graph_encoder.compute_output(output, batch['bag_size'])
+        #     rel_probs, _ = self.calc_task_loss(output, batch['rel'])
+        # else:
+        #     loss = task_loss
 
-        # For graph learning
-        loss = 0
-        iter_ = 0
-
-        # Indicate the last iteration umber for each example
-        batch_last_iters = torch.zeros(batch['source'].size(0), dtype=torch.uint8, device=self.device)
-        # Indicate either an xample is in ongoing state (i.e., 1) or stopping state (i.e., 0)
-        batch_stop_indicators = torch.ones(batch['source'].size(0), dtype=torch.uint8, device=self.device)
-        batch_all_outputs = []
-
-        while self.config['graph_learn'] and (
-                iter_ == 0 or torch.sum(batch_stop_indicators).item() > 0) and iter_ < max_iter:
-            iter_ += 1
-            batch_last_iters += batch_stop_indicators
-            pre_raw_adj = cur_raw_adj
-            cur_raw_adj, cur_adj = self.graph_encoder.learn_graph(self.graph_encoder.graph_learner2, node_vec,
-                                                                  self.graph_encoder.graph_skip_conn,
-                                                                  node_mask=node_mask,
-                                                                  graph_include_self=self.graph_encoder.graph_include_self,
-                                                                  init_adj=init_adj)
-
-            update_adj_ratio = self.config['update_adj_ratio']
-            if update_adj_ratio is not None:
-                cur_adj = update_adj_ratio * cur_adj + (1 - update_adj_ratio) * first_adj
-
-            node_vec = torch.relu(self.graph_encoder.encoder.graph_encoders[0](init_node_vec, cur_adj))
-            node_vec = F.dropout(node_vec, self.config['gl_dropout'], training=self.training)
-
-            # Add mid GNN layers if needed
-            for encoder in self.graph_encoder.encoder.graph_encoders[1:-1]:
-                node_vec = torch.relu(encoder(node_vec, cur_adj))
-                node_vec = F.dropout(node_vec, self.config['gl_dropout'], training=self.training)
-
-            tmp_output_sent = self.graph_encoder.encoder.graph_encoders[-1](node_vec, cur_adj)
-            tmp_graph_hid = self.graph_encoder.graph_maxpool(tmp_output_sent.transpose(-1, -2))
-
-            #####################
-            # Reconstruction
-            #####################
-            if self.config['reconstruction']:
-                tmp_new_input = tmp_graph_hid
-
-                # create hidden code
-                tmp_mu_ = self.hid2mu(tmp_new_input)
-                tmp_logvar_ = self.hid2var(tmp_new_input)
-                tmp_latent_z = self.reparameterisation(tmp_mu_, tmp_logvar_)
-
-                if self.config['priors']:
-                    tmp_prior_mus_expanded = torch.repeat_interleave(batch['prior_mus'], repeats=batch['bag_size'],
-                                                                     dim=0)
-                    tmp_kld = self.calc_kld(tmp_mu_, tmp_logvar_, mu_prior=tmp_prior_mus_expanded)
-
-                else:
-                    tmp_kld = self.calc_kld(tmp_mu_, tmp_logvar_)
-
-                # reconstruction
-                tmp_recon_x = self.reconstruction(tmp_latent_z, batch)
-                tmp_reco_loss = self.calc_reconstruction_loss(tmp_recon_x, batch)
-
-                # sentence representation --> use info from VAE !!
-                tmp_output = self.graph_encoder.compute_output(tmp_recon_x, batch['bag_size'])
-
-
-            else:
-                kld = torch.zeros((1,)).to(self.device)
-                reco_loss = {'sum': torch.zeros((1,)).to(self.device),
-                             'mean': torch.zeros((1,)).to(self.device)}
-                mu_ = torch.zeros((graph_out.size(0), self.config['latent_dim'])).to(self.device)
-
-                # sentence representation
-                # tmp_output_sent = torch.cat([tmp_hidden, arg1, arg2], dim=1)
-                tmp_output = self.graph_encoder.compute_output(tmp_output_sent, batch['bag_size'])
-
-            # Sentence per bag
-            # tmp_output = pad_sequence(torch.split(tmp_output_sent, batch['bag_size'].tolist(), dim=0),
-            #                           batch_first=True,
-            #                           padding_value=0)
-            # TODO: simple version
-            # tmp_output = self.reduction(tmp_output)
-            # tmp_output = self.sentence_attention(tmp_output, batch['bag_size'], self.r_embed.embedding.weight.data)
-            # tmp_output = self.graph_encoder.compute_output(tmp_output, self.dim2rel)
-
-            #####################
-            # Classification
-            #####################
-            # tmp_output = self.out_drop(tmp_output)
-            # tmp_output = self.dim2rel(tmp_output)  # tie embeds
-            # tmp_output = tmp_output.diagonal(dim1=1, dim2=2)  # take probs based on relations query vector
-            batch_all_outputs.append(tmp_output_sent.unsqueeze(1))
-
-            _, tmp_loss = self.calc_task_loss(tmp_output, batch['rel'])
-            if len(tmp_loss.shape) == 2:
-                tmp_loss = torch.mean(tmp_loss, 1)
-
-            loss += batch_stop_indicators.float() * tmp_loss
-
-            if self.config['graph_learn'] and self.config['graph_learn_regularization']:
-                tmp_graph_loss = self.add_batch_graph_loss(cur_raw_adj, raw_node_vec,
-                                                           keep_batch_dim=True)
-                loss += batch_stop_indicators.float() * tmp_graph_loss
-
-            if self.config['graph_learn'] and not self.config['graph_learn_ratio'] in (None, 0):
-                loss += batch_stop_indicators.float() * self.batch_SquaredFrobeniusNorm(cur_adj - pre_raw_adj) * \
-                        self.config['graph_learn_ratio']
-            tmp_stop_criteria = self.batch_diff(cur_raw_adj, pre_raw_adj, first_raw_adj) > eps_adj
-            batch_stop_indicators = batch_stop_indicators * tmp_stop_criteria
-
-        if iter_ > 0:
-            loss = torch.mean(loss / batch_last_iters.float()) + task_loss
-
-            batch_all_outputs = torch.cat(batch_all_outputs, 1)
-            selected_iter_index = batch_last_iters.long().unsqueeze(-1) - 1
-            if len(batch_all_outputs.shape) == 4:
-                selected_iter_index = selected_iter_index.unsqueeze(-1).expand(-1, batch_all_outputs.size(-2),
-                                                                               batch_all_outputs.size(-1)).unsqueeze(1)
-                output = batch_all_outputs.gather(1, selected_iter_index).squeeze(1)
-            else:
-                output = batch_all_outputs.gather(1, selected_iter_index)
-
-            output = self.graph_encoder.compute_output(output, batch['bag_size'])
-            rel_probs, _ = self.calc_task_loss(output, batch['rel'])
-        else:
-            loss = task_loss
-
-        assert torch.sum(torch.isnan(rel_probs)) == 0.0, sent_rep
-        return task_loss, loss, rel_probs, kld, reco_loss, mu_
+        assert torch.sum(torch.isnan(rel_probs)) == 0.0
+        return task_loss, graph_loss, rel_probs, kld, reco_loss, mu_

@@ -68,8 +68,8 @@ class BaseNet(nn.Module):
         self.task_loss = nn.BCEWithLogitsLoss(reduction='none')
 
         if self.config['reconstruction']:
-            self.hid2mu = nn.Linear(config['graph_hid_dim'], config['latent_dim'])
-            self.hid2var = nn.Linear(config['graph_hid_dim'], config['latent_dim'])
+            self.hid2mu = nn.Linear(config['graph_out_dim'], config['latent_dim'])
+            self.hid2var = nn.Linear(config['graph_out_dim'], config['latent_dim'])
             self.latent2hid = nn.Linear(config['latent_dim'], config['dec_dim'])
 
             self.reduction = nn.Linear(in_features=config['latent_dim'] + 2 * config['enc_dim'],

@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn.utils.rnn import pad_sequence
 
+from modules.gvae import GVAE
 from modules.gnn import GCN
 from modules.graphlearn import GraphLearner, get_binarized_kneighbors_graph
 from modules.utils import batch_normalize_adj
@@ -36,11 +37,18 @@ class TextGraph(nn.Module):
         self.graph_out_dim = config['graph_out_dim']
         self.output_rel_dim = num_rel
 
+        # G-VAE
+        self.lat_dim = config['latent_dim']
+        self.dec_dim = config['dec_dim']
+
         # Text Sentence Embedding
         self.ctx_encoder = lang_encoder
 
         self.linear_out = nn.Linear(self.graph_out_dim, self.output_rel_dim)
         self.hidden_out = nn.Linear(self.graph_hid_dim, self.graph_hid_dim)
+
+        # Graph VAE
+        self.gvae = GVAE(self.enc_dim,self.dec_dim,self.lat_dim,self.dropout)
 
         if self.graph_module == 'gcn':
             gcn_module = GCN
@@ -119,8 +127,6 @@ class TextGraph(nn.Module):
         out_hid = out_hid.sum(-2)
         return out_hid
 
-
-
     def mask_output(self, bag, bag_size):
         # mask padding elements
         tmp = torch.arange(bag.size(1)).repeat(bag.size(0), 1).unsqueeze(-1).to(self.device)
@@ -166,7 +172,155 @@ class TextGraph(nn.Module):
         arg2 = torch.div(torch.matmul(index_t2, enc_seq), torch.sum(index_t2, dim=2).unsqueeze(-1)).squeeze(1)  # avg
         return arg1, arg2
 
-    def forward(self, context_vec, context_len, mentions):
+    def graph_reco_loss(self, preds, labels, mu, log_var, n_nodes, norm, pos_weight):
+        cost = norm * F.binary_cross_entropy_with_logits(preds, labels, pos_weight=pos_weight)
+        KLD = -0.5 / n_nodes * torch.mean(torch.sum(
+            1 + 2 * log_var - mu.pow(2) - log_var.exp().pow(2),1
+        ))
+        return cost, KLD
+
+    def add_batch_graph_loss(self, out_adj, features, keep_batch_dim=False):
+        # Graph regularization
+        if keep_batch_dim:
+            graph_loss = []
+            for i in range(out_adj.shape[0]):
+                L = torch.diagflat(torch.sum(out_adj[i], -1)) - out_adj[i]
+                graph_loss.append(self.config['smoothness_ratio'] * torch.trace(
+                    torch.mm(features[i].transpose(-1, -2), torch.mm(L, features[i]))) / int(
+                    np.prod(out_adj.shape[1:])))
+
+            graph_loss = torch.Tensor(graph_loss).to(self.device)
+
+            ones_vec = torch.ones(out_adj.shape[:-1], device=self.device)
+            graph_loss += -self.config['degree_ratio'] * torch.matmul(ones_vec.unsqueeze(1), torch.log(
+                torch.matmul(out_adj, ones_vec.unsqueeze(-1)) + VERY_SMALL_NUMBER)).squeeze(-1).squeeze(-1) / \
+                          out_adj.shape[-1]
+            graph_loss += self.config['sparsity_ratio'] * torch.sum(torch.pow(out_adj, 2), (1, 2)) / int(
+                np.prod(out_adj.shape[1:]))
+
+        else:
+            graph_loss = 0
+            for i in range(out_adj.shape[0]):
+                L = torch.diagflat(torch.sum(out_adj[i], -1)) - out_adj[i]
+                graph_loss += self.config['smoothness_ratio'] * torch.trace(
+                    torch.mm(features[i].transpose(-1, -2), torch.mm(L, features[i]))) / int(np.prod(out_adj.shape))
+
+            ones_vec = torch.ones(out_adj.shape[:-1], device=self.device)
+            graph_loss += -self.config['degree_ratio'] * torch.matmul(ones_vec.unsqueeze(1), torch.log(
+                torch.matmul(out_adj, ones_vec.unsqueeze(-1)) + VERY_SMALL_NUMBER)).sum() / out_adj.shape[0] / \
+                          out_adj.shape[-1]
+            graph_loss += self.config['sparsity_ratio'] * torch.sum(torch.pow(out_adj, 2)) / int(np.prod(out_adj.shape))
+
+        return graph_loss
+
+    def SquaredFrobeniusNorm(self, X):
+        return torch.sum(torch.pow(X, 2)) / int(np.prod(X.shape))
+
+    def batch_SquaredFrobeniusNorm(self, X):
+        return torch.sum(torch.pow(X, 2), (1, 2)) / int(np.prod(X.shape[1:]))
+
+    def batch_diff(self, X, Y, Z):
+        assert X.shape == Y.shape
+        diff_ = torch.sum(torch.pow(X - Y, 2), (1, 2))
+        norm_ = torch.sum(torch.pow(Z, 2), (1, 2))
+        diff_ = diff_ / torch.clamp(norm_, min=VERY_SMALL_NUMBER)
+        return diff_
+
+    def learn_iter_graphs(self, graph_features, source_size, bag_size, targets, loss_fn):
+        init_adj, cur_raw_adj, cur_adj, raw_node_vec, init_node_vec, node_vec, node_mask = graph_features
+        if self.config['graph_learn'] and self.config['graph_learn_regularization']:
+            graph_loss = self.add_batch_graph_loss(cur_raw_adj, raw_node_vec)
+        else:
+            graph_loss = 0
+
+        first_raw_adj, first_adj = cur_raw_adj, cur_adj
+
+        # Simper version
+        if self.training:
+            max_iter = self.config['graph_learn_max_iter']
+        else:
+            max_iter = self.config['graph_learn_max_iter'] * 2
+
+        eps_adj = float(self.config['eps_adj'])
+
+        # For graph learning
+        loss = 0
+        iter_ = 0
+
+        # Indicate the last iteration umber for each example
+        batch_last_iters = torch.zeros(source_size, dtype=torch.uint8, device=self.device)
+        # Indicate either an xample is in ongoing state (i.e., 1) or stopping state (i.e., 0)
+        batch_stop_indicators = torch.ones(source_size, dtype=torch.uint8, device=self.device)
+        batch_all_outputs = []
+
+        while self.config['graph_learn'] and (
+                iter_ == 0 or torch.sum(batch_stop_indicators).item() > 0) and iter_ < max_iter:
+            iter_ += 1
+            batch_last_iters += batch_stop_indicators
+            pre_raw_adj = cur_raw_adj
+            cur_raw_adj, cur_adj = self.learn_graph(self.graph_learner2, node_vec,
+                                                    self.graph_skip_conn,
+                                                    node_mask=node_mask,
+                                                    graph_include_self=self.graph_include_self,
+                                                    init_adj=init_adj)
+
+            update_adj_ratio = self.config['update_adj_ratio']
+            if update_adj_ratio is not None:
+                cur_adj = update_adj_ratio * cur_adj + (1 - update_adj_ratio) * first_adj
+
+            node_vec = torch.relu(self.encoder.graph_encoders[0](init_node_vec, cur_adj))
+            node_vec = F.dropout(node_vec, self.config['gl_dropout'], training=self.training)
+
+            # Add mid GNN layers if needed
+            for encoder in self.encoder.graph_encoders[1:-1]:
+                node_vec = torch.relu(encoder(node_vec, cur_adj))
+                node_vec = F.dropout(node_vec, self.config['gl_dropout'], training=self.training)
+
+            tmp_output_sent = self.encoder.graph_encoders[-1](node_vec, cur_adj)
+
+            # sentence representation
+            tmp_output = self.compute_output(tmp_output_sent, bag_size)
+
+            batch_all_outputs.append(tmp_output_sent.unsqueeze(1))
+
+            _, tmp_loss = loss_fn(tmp_output, targets)
+            if len(tmp_loss.shape) == 2:
+                tmp_loss = torch.mean(tmp_loss, 1)
+
+            loss += batch_stop_indicators.float() * tmp_loss
+
+            if self.config['graph_learn'] and self.config['graph_learn_regularization']:
+                tmp_graph_loss = self.add_batch_graph_loss(cur_raw_adj, raw_node_vec,
+                                                           keep_batch_dim=True)
+                loss += batch_stop_indicators.float() * tmp_graph_loss
+
+            if self.config['graph_learn'] and not self.config['graph_learn_ratio'] in (None, 0):
+                loss += batch_stop_indicators.float() * self.batch_SquaredFrobeniusNorm(cur_adj - pre_raw_adj) * \
+                        self.config['graph_learn_ratio']
+            tmp_stop_criteria = self.batch_diff(cur_raw_adj, pre_raw_adj, first_raw_adj) > eps_adj
+            batch_stop_indicators = batch_stop_indicators * tmp_stop_criteria
+
+        if iter_ > 0:
+            loss = torch.mean(loss / batch_last_iters.float()) + graph_loss
+
+            batch_all_outputs = torch.cat(batch_all_outputs, 1)
+            selected_iter_index = batch_last_iters.long().unsqueeze(-1) - 1
+            if len(batch_all_outputs.shape) == 4:
+                selected_iter_index = selected_iter_index.unsqueeze(-1).expand(-1, batch_all_outputs.size(-2),
+                                                                               batch_all_outputs.size(-1)).unsqueeze(1)
+                output = batch_all_outputs.gather(1, selected_iter_index).squeeze(1)
+            else:
+                output = batch_all_outputs.gather(1, selected_iter_index)
+
+            output = self.compute_output(output, bag_size)
+            rel_probs, _ = loss_fn(output, targets)
+        else:
+            loss = graph_loss
+            rel_probs = None
+
+        return loss, rel_probs
+
+    def forward(self, context_vec, context_len, mentions, bag_size):
         # Prepare init node embedding, init adj
         raw_context_vec, context_vec, context_mask, init_adj, enc_hidden, cell_state = self.prepare_init_graph(
             context_vec, context_len)
@@ -183,21 +337,62 @@ class TextGraph(nn.Module):
                                                 node_mask=node_mask, graph_include_self=self.graph_include_self,
                                                 init_adj=init_adj)
 
-        node_vec = torch.relu(self.encoder.graph_encoders[0](init_node_vec, cur_adj))
-        node_vec = F.dropout(node_vec, self.dropout, training=self.training)
+        # node_vec = torch.relu(self.encoder.graph_encoders[0](init_node_vec, cur_adj))
+        # node_vec = F.dropout(node_vec, self.dropout, training=self.training)
+        #
+        # # Add mid GNN layers
+        # for encoder in self.encoder.graph_encoders[1:-1]:
+        #     node_vec = torch.relu(encoder(node_vec, cur_adj))
+        #     node_vec = F.dropout(node_vec, self.dropout, training=self.training)
+        #
+        # # Graph Output
+        # output = self.encoder.graph_encoders[-1](node_vec, cur_adj)
 
-        # Add mid GNN layers
-        for encoder in self.encoder.graph_encoders[1:-1]:
-            node_vec = torch.relu(encoder(node_vec, cur_adj))
+        if self.config['reconstruction']:
+            # TODO: Graph VAE mu_ var_ to get output
+            mean_adj_sum = cur_adj.sum() / cur_adj.size(0)
+            pos_weight = float(cur_adj.size(-1) * cur_adj.size(-1) - mean_adj_sum) / mean_adj_sum
+            norm = cur_adj.size(-1) * cur_adj.size(-1) / float(cur_adj.size(-1) * cur_adj.size(-1) - mean_adj_sum * 2)
+            adj_label = cur_adj
+            # Reconstruction Graph
+            reco_adj, mu_, logvar_ = self.gvae(init_node_vec, cur_adj)
+            reco_loss,kld = self.graph_reco_loss(reco_adj, adj_label, mu=mu_, log_var=logvar_, n_nodes=adj_label.size(-1),
+                                             norm=norm, pos_weight=pos_weight.detach())
+            node_vec = torch.relu(self.encoder.graph_encoders[0](init_node_vec, reco_adj))
             node_vec = F.dropout(node_vec, self.dropout, training=self.training)
 
-        # Graph Output
-        output = self.encoder.graph_encoders[-1](node_vec, cur_adj)
-        # output = self.compute_output(output, node_mask=node_mask)
-        # hidden = self.graph_maxpool(output.transpose(-1, -2), node_mask=node_mask)
-        # hidden = F.dropout(hidden, self.dropout, training=self.training)
+            # Add mid GNN layers
+            for encoder in self.encoder.graph_encoders[1:-1]:
+                node_vec = torch.relu(encoder(node_vec, reco_adj))
+                node_vec = F.dropout(node_vec, self.dropout, training=self.training)
 
-        # hidden = self.compute_output(output, node_mask=node_mask)
-        # TODO: Complete hidden
-        graph_hid = self.compute_hidden(output)
-        return output, graph_hid, (init_adj, cur_raw_adj, cur_adj, raw_node_vec, init_node_vec, node_vec, node_mask)
+            # Graph Output
+            output = self.encoder.graph_encoders[-1](node_vec, reco_adj)
+            kld = torch.zeros((1,)).to(self.device)
+            mu_ = torch.zeros((output.size(0), self.config['latent_dim'])).to(self.device)
+
+            output = self.compute_output(output, bag_size)
+
+        else:
+            node_vec = torch.relu(self.encoder.graph_encoders[0](init_node_vec, cur_adj))
+            node_vec = F.dropout(node_vec, self.dropout, training=self.training)
+
+            # Add mid GNN layers
+            for encoder in self.encoder.graph_encoders[1:-1]:
+                node_vec = torch.relu(encoder(node_vec, cur_adj))
+                node_vec = F.dropout(node_vec, self.dropout, training=self.training)
+
+            # Graph Output
+            output = self.encoder.graph_encoders[-1](node_vec, cur_adj)
+            kld = torch.zeros((1,)).to(self.device)
+            reco_loss = 0
+            mu_ = torch.zeros((output.size(0), self.config['latent_dim'])).to(self.device)
+
+            # sentence representation
+            # sent_rep = torch.cat([graph_hid, arg1, arg2], dim=1)
+            output = self.compute_output(output, bag_size)
+
+        rec_features = (kld, reco_loss, mu_)
+
+        return output, (init_adj, cur_raw_adj, cur_adj, raw_node_vec, init_node_vec, node_vec, node_mask), \
+               rec_features
