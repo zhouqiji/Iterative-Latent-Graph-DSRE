@@ -355,7 +355,7 @@ class TextGraph(nn.Module):
             norm = cur_adj.size(-1) * cur_adj.size(-1) / float(cur_adj.size(-1) * cur_adj.size(-1) - mean_adj_sum * 2)
             adj_label = cur_adj
             # Reconstruction Graph
-            reco_adj, mu_, logvar_ = self.gvae(init_node_vec, cur_adj)
+            reco_adj, mu_, logvar_ = self.gvae(init_node_vec, cur_adj, node_mask)
             reco_loss, kld = self.graph_reco_loss(reco_adj, adj_label, mu=mu_, log_var=logvar_,
                                                   n_nodes=adj_label.size(-1),
                                                   norm=norm, pos_weight=pos_weight.detach())

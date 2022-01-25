@@ -27,9 +27,10 @@ class GVAE(nn.Module):
         else:
             return mu
 
-    def forward(self, x, adj):
+    def forward(self, x, adj, node_mask):
         mu, log_var = self.encode(x, adj)
         z = self.re_parameterize(mu, log_var)
+        z = z.masked_fill_(~node_mask.bool().unsqueeze(-1), 0)
         return self.dc(z), mu, log_var
 
 
