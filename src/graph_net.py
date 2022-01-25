@@ -270,7 +270,7 @@ class GraphNet(BaseNet):
         #####################
         if self.config['reconstruction']:
 
-            new_input = torch.cat([graph_hid, graph_hid], dim=1)
+            new_input = graph_hid
 
             # create hidden code
             mu_ = self.hid2mu(new_input)
@@ -289,12 +289,7 @@ class GraphNet(BaseNet):
             reco_loss = self.calc_reconstruction_loss(recon_x, batch)
 
             # sentence representation --> use info from VAE !!
-            sent_rep = torch.cat([latent_z, latent_z], dim=1)
-            sent_rep = pad_sequence(torch.split(sent_rep, batch['bag_size'].tolist(), dim=0),
-                                    batch_first=True,
-                                    padding_value=0)
-            sent_rep = self.graph_encoder.graph_maxpool(sent_rep.transpose(-1, -2))
-            sent_rep = self.graph_encoder.linear_out(sent_rep)
+            sent_rep = self.graph_encoder.compute_output(recon_x, batch['bag_size'])
 
         else:
             kld = torch.zeros((1,)).to(self.device)
@@ -367,7 +362,7 @@ class GraphNet(BaseNet):
             # Reconstruction
             #####################
             if self.config['reconstruction']:
-                tmp_new_input = torch.cat([tmp_graph_hid, tmp_graph_hid], dim=1)
+                tmp_new_input = tmp_graph_hid
 
                 # create hidden code
                 tmp_mu_ = self.hid2mu(tmp_new_input)
@@ -387,13 +382,8 @@ class GraphNet(BaseNet):
                 tmp_reco_loss = self.calc_reconstruction_loss(tmp_recon_x, batch)
 
                 # sentence representation --> use info from VAE !!
+                tmp_output = self.graph_encoder.compute_output(tmp_recon_x, batch['bag_size'])
 
-                tmp_output = torch.cat([tmp_latent_z, tmp_latent_z], dim=1)
-                tmp_output = pad_sequence(torch.split(tmp_output, batch['bag_size'].tolist(), dim=0),
-                                          batch_first=True,
-                                          padding_value=0)
-                tmp_output = self.graph_encoder.graph_maxpool(tmp_output.transpose(-1, -2))
-                tmp_output = self.graph_encoder.linear_out(tmp_output)
 
             else:
                 kld = torch.zeros((1,)).to(self.device)

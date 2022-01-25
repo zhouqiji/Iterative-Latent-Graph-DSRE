@@ -40,6 +40,7 @@ class TextGraph(nn.Module):
         self.ctx_encoder = lang_encoder
 
         self.linear_out = nn.Linear(self.graph_out_dim, self.output_rel_dim)
+        self.hidden_out = nn.Linear(self.graph_hid_dim, self.graph_hid_dim)
 
         if self.graph_module == 'gcn':
             gcn_module = GCN
@@ -111,6 +112,14 @@ class TextGraph(nn.Module):
         output = self.graph_maxpool(output.transpose(-1, -2))
         output = self.linear_out(output)
         return output
+
+    def compute_hidden(self, output):
+        out_hid = self.hidden_out(output)
+        out_hid = torch.dropout(out_hid, self.dropout, self.training)
+        out_hid = out_hid.sum(-2)
+        return out_hid
+
+
 
     def mask_output(self, bag, bag_size):
         # mask padding elements
@@ -190,5 +199,5 @@ class TextGraph(nn.Module):
 
         # hidden = self.compute_output(output, node_mask=node_mask)
         # TODO: Complete hidden
-        graph_hid = self.graph_maxpool(output.transpose(-1, -2))
+        graph_hid = self.compute_hidden(output)
         return output, graph_hid, (init_adj, cur_raw_adj, cur_adj, raw_node_vec, init_node_vec, node_vec, node_mask)

@@ -20,7 +20,7 @@ bag_size: 500
 word_embed_dim: 50
 rel_embed_dim: 64
 pos_embed_dim: 8
-latent_dim: 64
+latent_dim: 128
 max_sent_len: 50
 pretrained_embeds_file: ../embeds/glove.6B.50d.txt  # vec.txt (Lin et al., 2016)
 freeze_words: False
