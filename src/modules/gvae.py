@@ -20,12 +20,9 @@ class GVAE(nn.Module):
         return self.gc_mu(hid1, adj), self.gc_var(hid1, adj)
 
     def re_parameterize(self, mu, logvar):
-        if self.training:
-            std = torch.exp(logvar)
+            std = torch.exp(0.5 * logvar)
             eps = torch.randn_like(std)
             return eps.mul(std).add_(mu)
-        else:
-            return mu
 
     def forward(self, x, adj, node_mask):
         mu, log_var = self.encode(x, adj)
@@ -42,5 +39,5 @@ class InnerProductDecoder(nn.Module):
 
     def forward(self, z):
         z = F.dropout(z, self.dropout, training=self.training)
-        adj = self.act(torch.bmm(z, z.transpose(-1,-2)))
+        adj = self.act(torch.bmm(z, z.transpose(-1, -2)))
         return adj
