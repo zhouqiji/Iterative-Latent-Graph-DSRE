@@ -14,18 +14,18 @@ exp_name: 'nyt10'
 model_name: 'nyt10'
 
 # Hyper-parameters
-batch_size: 128
+batch_size: 64
 epochs: 100
 bag_size: 500
 word_embed_dim: 50
 rel_embed_dim: 64
 pos_embed_dim: 8
-latent_dim: 0
+latent_dim: 64
 max_sent_len: 50
 pretrained_embeds_file: ../embeds/glove.6B.50d.txt  # vec.txt (Lin et al., 2016)
 freeze_words: False
 enc_dim: 128
-dec_dim: 0
+dec_dim: 128
 enc_layers: 1
 dec_layers: 1
 enc_bidirectional: True
@@ -77,7 +77,7 @@ graph_learn_epsilon2: 0 # weighted_cosine: 0
 graph_learn_topk2: null # attn-GCN: 140: 64.1, kernel-GCN: 100
 graph_hops: 2
 graph_hid_dim: 128
-graph_out_dim: 64  # Tuning!
+graph_out_dim: 128  # Tuning!
 graph_learn_max_iter: 4
 eps_adj: 8e-3
 gl_dropout: 0.01

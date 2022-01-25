@@ -190,4 +190,5 @@ class TextGraph(nn.Module):
 
         # hidden = self.compute_output(output, node_mask=node_mask)
         # TODO: Complete hidden
-        return output, (init_adj, cur_raw_adj, cur_adj, raw_node_vec, init_node_vec, node_vec, node_mask)
+        graph_hid = self.graph_maxpool(output.transpose(-1, -2))
+        return output, graph_hid, (init_adj, cur_raw_adj, cur_adj, raw_node_vec, init_node_vec, node_vec, node_mask)

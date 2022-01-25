@@ -257,7 +257,7 @@ class GraphNet(BaseNet):
         ##########################
         # Graph Encoder
         ##########################
-        graph_out, graph_features = self.graph_encoder(x_vec, batch['sent_len'], batch['mentions'])
+        graph_out, graph_hid, graph_features = self.graph_encoder(x_vec, batch['sent_len'], batch['mentions'])
 
         ##########################
         # Argument Representation
@@ -269,6 +269,7 @@ class GraphNet(BaseNet):
         # Reconstruction
         #####################
         if self.config['reconstruction']:
+
             new_input = torch.cat([graph_hid, graph_hid], dim=1)
 
             # create hidden code
@@ -288,7 +289,12 @@ class GraphNet(BaseNet):
             reco_loss = self.calc_reconstruction_loss(recon_x, batch)
 
             # sentence representation --> use info from VAE !!
-            sent_rep = torch.cat([latent_z, arg1, arg2], dim=1)
+            sent_rep = torch.cat([latent_z, latent_z], dim=1)
+            sent_rep = pad_sequence(torch.split(sent_rep, batch['bag_size'].tolist(), dim=0),
+                                    batch_first=True,
+                                    padding_value=0)
+            sent_rep = self.graph_encoder.graph_maxpool(sent_rep.transpose(-1, -2))
+            sent_rep = self.graph_encoder.linear_out(sent_rep)
 
         else:
             kld = torch.zeros((1,)).to(self.device)
@@ -313,7 +319,6 @@ class GraphNet(BaseNet):
 
         first_raw_adj, first_adj = cur_raw_adj, cur_adj
 
-        # TODO: Complete the max_iter choice process train and test
         # Simper version
         if self.training:
             max_iter = self.config['graph_learn_max_iter']
@@ -356,12 +361,13 @@ class GraphNet(BaseNet):
                 node_vec = F.dropout(node_vec, self.config['gl_dropout'], training=self.training)
 
             tmp_output_sent = self.graph_encoder.encoder.graph_encoders[-1](node_vec, cur_adj)
+            tmp_graph_hid = self.graph_encoder.graph_maxpool(tmp_output_sent.transpose(-1, -2))
 
             #####################
             # Reconstruction
             #####################
             if self.config['reconstruction']:
-                tmp_new_input = torch.cat([tmp_hidden, cell_state], dim=1)
+                tmp_new_input = torch.cat([tmp_graph_hid, tmp_graph_hid], dim=1)
 
                 # create hidden code
                 tmp_mu_ = self.hid2mu(tmp_new_input)
@@ -381,7 +387,13 @@ class GraphNet(BaseNet):
                 tmp_reco_loss = self.calc_reconstruction_loss(tmp_recon_x, batch)
 
                 # sentence representation --> use info from VAE !!
-                tmp_output_sent = torch.cat([tmp_latent_z, tmp_arg1, tmp_arg2], dim=1)
+
+                tmp_output = torch.cat([tmp_latent_z, tmp_latent_z], dim=1)
+                tmp_output = pad_sequence(torch.split(tmp_output, batch['bag_size'].tolist(), dim=0),
+                                          batch_first=True,
+                                          padding_value=0)
+                tmp_output = self.graph_encoder.graph_maxpool(tmp_output.transpose(-1, -2))
+                tmp_output = self.graph_encoder.linear_out(tmp_output)
 
             else:
                 kld = torch.zeros((1,)).to(self.device)
