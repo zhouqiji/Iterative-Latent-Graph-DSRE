@@ -213,16 +213,16 @@ class Trainer(BaseTrainer):
 
                 # TODO: update for graph vae
                 if self.config['reconstruction']:
-                    loss = (self.config['task_weight'] * task_loss) + \
-                           (1 - self.config['task_weight']) * (rec_loss['sum'] + kld)
+                    loss = (self.config['task_weight'] * (task_loss + graph_loss)) + \
+                           (1 - self.config['task_weight']) * (rec_loss + kld)
                 else:
                     loss = task_loss + graph_loss
 
                 tracker['probabilities'] += [rel_probs.cpu().data.numpy()]
                 tracker['gtruth'] += [batch['rel'].cpu().data.numpy()]
                 tracker['total'] += [loss.item()]
-                tracker['reco'] += [rec_loss['sum'].item()]
-                tracker['ppl'] += [np.exp(rec_loss['mean'].item())]
+                tracker['reco'] += [rec_loss.item()]
+                tracker['ppl'] += [np.exp(rec_loss.item())]
                 tracker['kld'] += [kld.item()]
                 tracker['task'] += [task_loss.item()]
                 tracker['graph'] += [graph_loss.item()]

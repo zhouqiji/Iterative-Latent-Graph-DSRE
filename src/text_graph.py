@@ -369,8 +369,6 @@ class TextGraph(nn.Module):
 
             # Graph Output
             output = self.encoder.graph_encoders[-1](node_vec, reco_adj)
-            kld = torch.zeros((1,)).to(self.device)
-            mu_ = torch.zeros((output.size(0), self.config['latent_dim'])).to(self.device)
 
             output = self.compute_output(output, bag_size)
 
