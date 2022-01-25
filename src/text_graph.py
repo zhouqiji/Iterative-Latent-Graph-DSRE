@@ -48,7 +48,7 @@ class TextGraph(nn.Module):
         self.hidden_out = nn.Linear(self.graph_hid_dim, self.graph_hid_dim)
 
         # Graph VAE
-        self.gvae = GVAE(self.enc_dim,self.dec_dim,self.lat_dim,self.dropout)
+        self.gvae = GVAE(self.enc_dim, self.dec_dim, self.lat_dim, self.dropout)
 
         if self.graph_module == 'gcn':
             gcn_module = GCN
@@ -175,7 +175,7 @@ class TextGraph(nn.Module):
     def graph_reco_loss(self, preds, labels, mu, log_var, n_nodes, norm, pos_weight):
         cost = norm * F.binary_cross_entropy_with_logits(preds, labels, pos_weight=pos_weight)
         KLD = -0.5 / n_nodes * torch.mean(torch.sum(
-            1 + 2 * log_var - mu.pow(2) - log_var.exp().pow(2),1
+            1 + 2 * log_var - mu.pow(2) - log_var.exp().pow(2), 1
         ))
         return cost, KLD
 
@@ -356,8 +356,9 @@ class TextGraph(nn.Module):
             adj_label = cur_adj
             # Reconstruction Graph
             reco_adj, mu_, logvar_ = self.gvae(init_node_vec, cur_adj)
-            reco_loss,kld = self.graph_reco_loss(reco_adj, adj_label, mu=mu_, log_var=logvar_, n_nodes=adj_label.size(-1),
-                                             norm=norm, pos_weight=pos_weight.detach())
+            reco_loss, kld = self.graph_reco_loss(reco_adj, adj_label, mu=mu_, log_var=logvar_,
+                                                  n_nodes=adj_label.size(-1),
+                                                  norm=norm, pos_weight=pos_weight.detach())
             node_vec = torch.relu(self.encoder.graph_encoders[0](init_node_vec, reco_adj))
             node_vec = F.dropout(node_vec, self.dropout, training=self.training)
 
