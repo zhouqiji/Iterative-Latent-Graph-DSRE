@@ -159,7 +159,7 @@ class Trainer(BaseTrainer):
             # TODO: update for graph vae
             if self.config['reconstruction']:
                 loss = (self.config['task_weight'] * task_loss) + \
-                       (1 - self.config['task_weight']) * (rec_loss + (kl_w[step] * kld)) + graph_loss
+                       (1 - self.config['task_weight']) * (rec_loss + (kl_w[step] * kld) + graph_loss)
             else:
                 loss = (self.config['task_weight'] * task_loss) + (1 - self.config['task_weight']) * graph_loss
 
