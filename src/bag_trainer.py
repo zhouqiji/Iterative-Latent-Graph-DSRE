@@ -161,7 +161,7 @@ class Trainer(BaseTrainer):
                 loss = (self.config['task_weight'] * task_loss) + \
                        (1 - self.config['task_weight']) * (rec_loss + (kl_w[step] * kld)) + graph_loss
             else:
-                loss = task_loss + graph_loss
+                loss = (self.config['task_weight'] * task_loss) + (1 - self.config['task_weight']) * graph_loss
 
             loss.backward()
 

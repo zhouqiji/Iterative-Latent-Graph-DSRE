@@ -414,7 +414,7 @@ class TextGraph(nn.Module):
             # Graph Output
             output = self.encoder.graph_encoders[-1](node_vec, cur_adj)
             kld = torch.zeros((1,)).to(self.device)
-            reco_loss = 0
+            reco_loss = torch.zeros((1,)).to(self.device)
             mu_ = torch.zeros((output.size(0), self.config['latent_dim'])).to(self.device)
 
             # sentence representation
