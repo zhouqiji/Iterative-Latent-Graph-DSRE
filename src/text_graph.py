@@ -381,12 +381,12 @@ class TextGraph(nn.Module):
 
         if self.config['reconstruction']:
             # TODO: Graph VAE mu_ var_ to get output
-            mean_adj_sum = cur_adj.sum(-1).sum(-1).mean()
-            pos_weight = float(cur_adj.size(-1) * cur_adj.size(-1) - mean_adj_sum) / mean_adj_sum
-            norm = cur_adj.size(-1) * cur_adj.size(-1) / float(cur_adj.size(-1) * cur_adj.size(-1) - mean_adj_sum * 2)
+            mean_adj_sum = cur_raw_adj.sum(-1).sum(-1).mean()
+            pos_weight = float(cur_raw_adj.size(-1) * cur_raw_adj.size(-1) - mean_adj_sum) / mean_adj_sum
+            norm = cur_raw_adj.size(-1) * cur_raw_adj.size(-1) / float(cur_raw_adj.size(-1) * cur_raw_adj.size(-1) - mean_adj_sum * 2)
             adj_label = cur_adj
             # Reconstruction Graph
-            reco_adj, mu_, logvar_ = self.gvae(init_node_vec, cur_adj, node_mask)
+            reco_adj, mu_, logvar_ = self.gvae(init_node_vec, cur_raw_adj, node_mask)
             reco_loss, kld = self.graph_reco_loss(reco_adj, adj_label, mu=mu_, log_var=logvar_,
                                                   n_nodes=adj_label.size(-1),
                                                   norm=norm, pos_weight=pos_weight.detach())
