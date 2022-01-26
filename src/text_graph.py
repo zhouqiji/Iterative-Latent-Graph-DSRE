@@ -381,7 +381,7 @@ class TextGraph(nn.Module):
 
         if self.config['reconstruction']:
             # TODO: Graph VAE mu_ var_ to get output
-            mean_adj_sum = cur_adj.sum() / cur_adj.size(0)
+            mean_adj_sum = cur_adj.sum(-1).sum(-1).mean()
             pos_weight = float(cur_adj.size(-1) * cur_adj.size(-1) - mean_adj_sum) / mean_adj_sum
             norm = cur_adj.size(-1) * cur_adj.size(-1) / float(cur_adj.size(-1) * cur_adj.size(-1) - mean_adj_sum * 2)
             adj_label = cur_adj
