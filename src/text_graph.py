@@ -373,7 +373,7 @@ class TextGraph(nn.Module):
             pos_weight = float(init_adj.size(-1) * init_adj.size(-1) - mean_adj_sum) / mean_adj_sum
             norm = init_adj.size(-1) * init_adj.size(-1) / float(
                 init_adj.size(-1) * init_adj.size(-1) - mean_adj_sum * 2)
-            adj_label = init_adj + torch.eye(init_adj.size(-1)).unsqueeze(0)
+            adj_label = init_adj + torch.eye(init_adj.size(-1), device=self.device).unsqueeze(0)
             # Reconstruction Graph
             reco_adj, mu_, logvar_ = self.gvae(init_node_vec, cur_adj, node_mask)
             reco_loss, kld = self.graph_reco_loss(reco_adj, adj_label, mu=mu_, log_var=logvar_,
