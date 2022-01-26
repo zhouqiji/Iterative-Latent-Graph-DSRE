@@ -48,7 +48,8 @@ class TextGraph(nn.Module):
         self.hidden_out = nn.Linear(self.graph_hid_dim, self.graph_hid_dim)
 
         # Graph VAE
-        self.gvae = GVAE(self.enc_dim, self.dec_dim, self.lat_dim, self.dropout)
+        if self.config['reconstruction']:
+            self.gvae = GVAE(self.enc_dim, self.dec_dim, self.lat_dim, self.dropout)
 
         if self.graph_module == 'gcn':
             gcn_module = GCN
