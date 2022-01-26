@@ -269,48 +269,48 @@ class TextGraph(nn.Module):
             if update_adj_ratio is not None:
                 cur_adj = update_adj_ratio * cur_adj + (1 - update_adj_ratio) * first_adj
 
-            if self.config['reconstruction']:
-                mean_adj_sum = cur_adj.sum() / cur_adj.size(0)
-                pos_weight = float(cur_adj.size(-1) * cur_adj.size(-1) - mean_adj_sum) / mean_adj_sum
-                norm = cur_adj.size(-1) * cur_adj.size(-1) / float(
-                    cur_adj.size(-1) * cur_adj.size(-1) - mean_adj_sum * 2)
-                adj_label = cur_adj
-                # Reconstruction Graph
-                reco_adj, mu_, logvar_ = self.gvae(init_node_vec, cur_adj, node_mask)
-                reco_loss, kld = self.graph_reco_loss(reco_adj, adj_label, mu=mu_, log_var=logvar_,
-                                                      n_nodes=adj_label.size(-1),
-                                                      norm=norm, pos_weight=pos_weight.detach())
-                cur_adj = reco_adj
+            # if self.config['reconstruction']:
+            #     mean_adj_sum = cur_adj.sum() / cur_adj.size(0)
+            #     pos_weight = float(cur_adj.size(-1) * cur_adj.size(-1) - mean_adj_sum) / mean_adj_sum
+            #     norm = cur_adj.size(-1) * cur_adj.size(-1) / float(
+            #         cur_adj.size(-1) * cur_adj.size(-1) - mean_adj_sum * 2)
+            #     adj_label = cur_adj
+            #     # Reconstruction Graph
+            #     reco_adj, mu_, logvar_ = self.gvae(init_node_vec, cur_adj, node_mask)
+            #     reco_loss, kld = self.graph_reco_loss(reco_adj, adj_label, mu=mu_, log_var=logvar_,
+            #                                           n_nodes=adj_label.size(-1),
+            #                                           norm=norm, pos_weight=pos_weight.detach())
+            #     cur_adj = reco_adj
+            #
+            #     node_vec = torch.relu(self.encoder.graph_encoders[0](init_node_vec, cur_adj))
+            #     node_vec = F.dropout(node_vec, self.config['gl_dropout'], training=self.training)
+            #     # Add mid GNN layers if needed
+            #     for encoder in self.encoder.graph_encoders[1:-1]:
+            #         node_vec = torch.relu(encoder(node_vec, cur_adj))
+            #         node_vec = F.dropout(node_vec, self.config['gl_dropout'], training=self.training)
+            #
+            #     output_sent = self.encoder.graph_encoders[-1](node_vec, cur_adj)
+            #
+            #     # sentence representation
+            #     output = self.compute_output(output_sent, bag_size)
+            # else:
+            node_vec = torch.relu(self.encoder.graph_encoders[0](init_node_vec, cur_adj))
+            node_vec = F.dropout(node_vec, self.dropout, training=self.training)
 
-                node_vec = torch.relu(self.encoder.graph_encoders[0](init_node_vec, cur_adj))
-                node_vec = F.dropout(node_vec, self.config['gl_dropout'], training=self.training)
-                # Add mid GNN layers if needed
-                for encoder in self.encoder.graph_encoders[1:-1]:
-                    node_vec = torch.relu(encoder(node_vec, cur_adj))
-                    node_vec = F.dropout(node_vec, self.config['gl_dropout'], training=self.training)
-
-                output_sent = self.encoder.graph_encoders[-1](node_vec, cur_adj)
-
-                # sentence representation
-                output = self.compute_output(output_sent, bag_size)
-            else:
-                node_vec = torch.relu(self.encoder.graph_encoders[0](init_node_vec, cur_adj))
+            # Add mid GNN layers
+            for encoder in self.encoder.graph_encoders[1:-1]:
+                node_vec = torch.relu(encoder(node_vec, cur_adj))
                 node_vec = F.dropout(node_vec, self.dropout, training=self.training)
 
-                # Add mid GNN layers
-                for encoder in self.encoder.graph_encoders[1:-1]:
-                    node_vec = torch.relu(encoder(node_vec, cur_adj))
-                    node_vec = F.dropout(node_vec, self.dropout, training=self.training)
+            # Graph Output
+            output_sent = self.encoder.graph_encoders[-1](node_vec, cur_adj)
+            kld = torch.zeros((1,)).to(self.device)
+            reco_loss = 0
+            mu_ = torch.zeros((output_sent.size(0), self.config['latent_dim'])).to(self.device)
 
-                # Graph Output
-                output_sent = self.encoder.graph_encoders[-1](node_vec, cur_adj)
-                kld = torch.zeros((1,)).to(self.device)
-                reco_loss = 0
-                mu_ = torch.zeros((output_sent.size(0), self.config['latent_dim'])).to(self.device)
-
-                # sentence representation
-                # sent_rep = torch.cat([graph_hid, arg1, arg2], dim=1)
-                output = self.compute_output(output_sent, bag_size)
+            # sentence representation
+            # sent_rep = torch.cat([graph_hid, arg1, arg2], dim=1)
+            output = self.compute_output(output_sent, bag_size)
 
             batch_all_outputs.append(output_sent.unsqueeze(1))
 
@@ -390,16 +390,17 @@ class TextGraph(nn.Module):
             reco_loss, kld = self.graph_reco_loss(reco_adj, adj_label, mu=mu_, log_var=logvar_,
                                                   n_nodes=adj_label.size(-1),
                                                   norm=norm, pos_weight=pos_weight.detach())
-            node_vec = torch.relu(self.encoder.graph_encoders[0](init_node_vec, reco_adj))
+            cur_adj = reco_adj
+            node_vec = torch.relu(self.encoder.graph_encoders[0](init_node_vec, cur_adj))
             node_vec = F.dropout(node_vec, self.dropout, training=self.training)
 
             # Add mid GNN layers
             for encoder in self.encoder.graph_encoders[1:-1]:
-                node_vec = torch.relu(encoder(node_vec, reco_adj))
+                node_vec = torch.relu(encoder(node_vec, cur_adj))
                 node_vec = F.dropout(node_vec, self.dropout, training=self.training)
 
             # Graph Output
-            output = self.encoder.graph_encoders[-1](node_vec, reco_adj)
+            output = self.encoder.graph_encoders[-1](node_vec, cur_adj)
 
             output = self.compute_output(output, bag_size)
 
