@@ -28,11 +28,6 @@ class BaseNet(nn.Module):
         self.SOS_id = vocabs['w_vocab'].word2id[vocabs['w_vocab'].SOS]
         self.UNK_id = vocabs['w_vocab'].word2id[vocabs['w_vocab'].UNK]
 
-        if config['include_positions']:
-            input_dim = config['word_embed_dim'] + 2 * config['pos_embed_dim']
-        else:
-            input_dim = config['word_embed_dim']
-
         self.w_embed = EmbedLayer(num_embeddings=vocabs['w_vocab'].n_word,
                                   embedding_dim=config['word_embed_dim'],
                                   pretrained=vocabs['w_vocab'].pretrained,
@@ -47,17 +42,8 @@ class BaseNet(nn.Module):
                                   embedding_dim=config['pos_embed_dim'],
                                   ignore=vocabs['p_vocab'].pos2id[vocabs['p_vocab'].PAD])
 
-        self.lang_encoder = LSTMEncoder(in_features=input_dim,
-                                        h_enc_dim=config['enc_dim'],
-                                        layers_num=config['enc_layers'],
-                                        dir2=config['enc_bidirectional'],
-                                        device=self.device,
-                                        action='sum')
+        self.graph_encoder = TextGraph(config=config, num_rel=len(vocabs['r_vocab']))
 
-        self.graph_encoder = TextGraph(config=config, lang_encoder=self.lang_encoder, num_rel=len(vocabs['r_vocab']))
-
-        # TODO: Selective Attention, Needed?
-        self.sentence_attention = SelectiveAttention(device=self.device)
 
         self.rel_flatten = nn.Flatten(1, -1)
 
@@ -67,27 +53,3 @@ class BaseNet(nn.Module):
         # task loss
         self.task_loss = nn.BCEWithLogitsLoss(reduction='none')
 
-        if self.config['reconstruction']:
-            self.hid2mu = nn.Linear(config['graph_out_dim'], config['latent_dim'])
-            self.hid2var = nn.Linear(config['graph_out_dim'], config['latent_dim'])
-            self.latent2hid = nn.Linear(config['latent_dim'], config['dec_dim'])
-
-            self.reduction = nn.Linear(in_features=config['latent_dim'] + 2 * config['enc_dim'],
-                                       out_features=config['rel_embed_dim'],
-                                       bias=False)
-
-            decoder_dim = config['word_embed_dim'] + config['latent_dim']
-            self.lang_decoder = LSTMDecoder(in_features=decoder_dim,
-                                            h_dec_dim=config['dec_dim'],
-                                            layers_num=config['dec_layers'],
-                                            dir2=config['dec_bidirectional'],
-                                            device=self.device,
-                                            action='sum')
-
-            self.reco_loss = AdaptiveLogSoftmaxWithLoss(config['dec_dim'], vocabs['w_vocab'].n_word,
-                                                        cutoffs=[round(vocabs['w_vocab'].n_word / 15),
-                                                                 3 * round(vocabs['w_vocab'].n_word / 15)])
-        else:
-            self.reduction = nn.Linear(in_features=3 * config['graph_out_dim'],
-                                       out_features=config['rel_embed_dim'],
-                                       bias=False)
