@@ -364,33 +364,22 @@ class TextGraph(nn.Module):
         init_node_vec = context_vec  # hidden embedding
         node_mask = context_mask
 
-        cur_raw_adj, cur_adj = self.learn_graph(self.graph_learner, raw_node_vec, self.graph_skip_conn,
-                                                node_mask=node_mask, graph_include_self=self.graph_include_self,
-                                                init_adj=init_adj)
 
-        # node_vec = torch.relu(self.encoder.graph_encoders[0](init_node_vec, cur_adj))
-        # node_vec = F.dropout(node_vec, self.dropout, training=self.training)
-        #
-        # # Add mid GNN layers
-        # for encoder in self.encoder.graph_encoders[1:-1]:
-        #     node_vec = torch.relu(encoder(node_vec, cur_adj))
-        #     node_vec = F.dropout(node_vec, self.dropout, training=self.training)
-        #
-        # # Graph Output
-        # output = self.encoder.graph_encoders[-1](node_vec, cur_adj)
 
         if self.config['reconstruction']:
             # TODO: Graph VAE mu_ var_ to get output
-            mean_adj_sum = cur_raw_adj.sum(-1).sum(-1).mean()
-            pos_weight = float(cur_raw_adj.size(-1) * cur_raw_adj.size(-1) - mean_adj_sum) / mean_adj_sum
-            norm = cur_raw_adj.size(-1) * cur_raw_adj.size(-1) / float(cur_raw_adj.size(-1) * cur_raw_adj.size(-1) - mean_adj_sum * 2)
-            adj_label = cur_adj
+            mean_adj_sum = init_adj.sum(-1).sum(-1).mean()
+            pos_weight = float(init_adj.size(-1) * init_adj.size(-1) - mean_adj_sum) / mean_adj_sum
+            norm = init_adj.size(-1) * init_adj.size(-1) / float(init_adj.size(-1) * init_adj.size(-1) - mean_adj_sum * 2)
+            adj_label = init_adj
             # Reconstruction Graph
-            reco_adj, mu_, logvar_ = self.gvae(init_node_vec, cur_raw_adj, node_mask)
+            reco_adj, mu_, logvar_ = self.gvae(init_node_vec, init_adj, node_mask)
             reco_loss, kld = self.graph_reco_loss(reco_adj, adj_label, mu=mu_, log_var=logvar_,
                                                   n_nodes=adj_label.size(-1),
                                                   norm=norm, pos_weight=pos_weight.detach())
-            cur_adj = reco_adj
+            cur_raw_adj, cur_adj = self.learn_graph(self.graph_learner, raw_node_vec, self.graph_skip_conn,
+                                                    node_mask=node_mask, graph_include_self=self.graph_include_self,
+                                                    init_adj=reco_adj)
             node_vec = torch.relu(self.encoder.graph_encoders[0](init_node_vec, cur_adj))
             node_vec = F.dropout(node_vec, self.dropout, training=self.training)
 
@@ -405,6 +394,10 @@ class TextGraph(nn.Module):
             output = self.compute_output(output, bag_size)
 
         else:
+            cur_raw_adj, cur_adj = self.learn_graph(self.graph_learner, raw_node_vec, self.graph_skip_conn,
+                                                    node_mask=node_mask, graph_include_self=self.graph_include_self,
+                                                    init_adj=init_adj)
+
             node_vec = torch.relu(self.encoder.graph_encoders[0](init_node_vec, cur_adj))
             node_vec = F.dropout(node_vec, self.dropout, training=self.training)
 
