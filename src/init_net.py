@@ -4,7 +4,7 @@ import torch.nn.functional as F
 from modules.embed import *
 from modules.encoders_decoders import *
 from modules.attention import *
-from modules.ModifiedAdaptiveSoftmax import AdaptiveLogSoftmaxWithLoss
+
 from text_graph import TextGraph
 
 
@@ -23,11 +23,6 @@ class BaseNet(nn.Module):
         self.device = device
         self.config = config
 
-        self.PAD_id = vocabs['w_vocab'].word2id[vocabs['w_vocab'].PAD]
-        self.EOS_id = vocabs['w_vocab'].word2id[vocabs['w_vocab'].EOS]
-        self.SOS_id = vocabs['w_vocab'].word2id[vocabs['w_vocab'].SOS]
-        self.UNK_id = vocabs['w_vocab'].word2id[vocabs['w_vocab'].UNK]
-
         self.w_embed = EmbedLayer(num_embeddings=vocabs['w_vocab'].n_word,
                                   embedding_dim=config['word_embed_dim'],
                                   pretrained=vocabs['w_vocab'].pretrained,
@@ -42,8 +37,7 @@ class BaseNet(nn.Module):
                                   embedding_dim=config['pos_embed_dim'],
                                   ignore=vocabs['p_vocab'].pos2id[vocabs['p_vocab'].PAD])
 
-        self.graph_encoder = TextGraph(config=config, num_rel=len(vocabs['r_vocab']))
-
+        self.graph_encoder = TextGraph(config=config, vocabs=vocabs, num_rel=len(vocabs['r_vocab']))
 
         self.rel_flatten = nn.Flatten(1, -1)
 
@@ -52,4 +46,3 @@ class BaseNet(nn.Module):
 
         # task loss
         self.task_loss = nn.BCEWithLogitsLoss(reduction='none')
-

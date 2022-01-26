@@ -4,19 +4,18 @@ import torch.nn.functional as F
 from torch.nn.utils.rnn import pad_sequence
 from modules.encoders_decoders import *
 from modules.attention import *
-from modules.ModifiedAdaptiveSoftmax import AdaptiveLogSoftmaxWithLoss
 
 from modules.gnn import GCN
 from modules.graphlearn import GraphLearner, get_binarized_kneighbors_graph
 from modules.utils import batch_normalize_adj
-
+from modules.ModifiedAdaptiveSoftmax import AdaptiveLogSoftmaxWithLoss
 from modules.constants import VERY_SMALL_NUMBER
 
 from helpers.common import *
 
 
 class TextGraph(nn.Module):
-    def __init__(self, config, num_rel=0):
+    def __init__(self, config, vocabs, num_rel=0):
         super(TextGraph, self).__init__()
         self.config = config
         self.name = 'TextGraph'
@@ -39,6 +38,11 @@ class TextGraph(nn.Module):
         self.graph_out_dim = config['graph_out_dim']
         self.output_rel_dim = num_rel
 
+        # From init_net
+        self.PAD_id = vocabs['w_vocab'].word2id[vocabs['w_vocab'].PAD]
+        self.EOS_id = vocabs['w_vocab'].word2id[vocabs['w_vocab'].EOS]
+        self.SOS_id = vocabs['w_vocab'].word2id[vocabs['w_vocab'].SOS]
+        self.UNK_id = vocabs['w_vocab'].word2id[vocabs['w_vocab'].UNK]
         # G-VAE
         self.lat_dim = config['latent_dim']
         self.dec_dim = config['dec_dim']
@@ -57,8 +61,8 @@ class TextGraph(nn.Module):
         self.linear_out = nn.Linear(self.graph_out_dim, self.output_rel_dim)
         self.hidden_out = nn.Linear(self.graph_hid_dim, self.graph_hid_dim)
         if self.config['reconstruction']:
-            self.hid2mu = nn.Linear(config['graph_out_dim'], config['latent_dim'])
-            self.hid2var = nn.Linear(config['graph_out_dim'], config['latent_dim'])
+            self.hid2mu = nn.Linear(config['graph_out_dim'] * 2, config['latent_dim'])
+            self.hid2var = nn.Linear(config['graph_out_dim'] * 2, config['latent_dim'])
             self.latent2hid = nn.Linear(config['latent_dim'], config['dec_dim'])
 
             self.reduction = nn.Linear(in_features=config['latent_dim'] + 2 * config['enc_dim'],
@@ -72,10 +76,11 @@ class TextGraph(nn.Module):
                                             dir2=config['dec_bidirectional'],
                                             device=self.device,
                                             action='sum')
-
             self.reco_loss = AdaptiveLogSoftmaxWithLoss(config['dec_dim'], vocabs['w_vocab'].n_word,
                                                         cutoffs=[round(vocabs['w_vocab'].n_word / 15),
                                                                  3 * round(vocabs['w_vocab'].n_word / 15)])
+
+
         else:
             self.reduction = nn.Linear(in_features=3 * config['graph_out_dim'],
                                        out_features=config['rel_embed_dim'],
@@ -359,8 +364,110 @@ class TextGraph(nn.Module):
 
         return loss, rel_probs
 
-    def reconstruction(self, latent_z, batch):
-        y_vec = self.form_decoder_input(batch['source'])
+    def greedy_decoding(self, z):
+        h0 = self.latent2hid(z).unsqueeze(0)
+        h0 = h0.expand(self.config['dec_layers'], h0.size(1), h0.size(2)).contiguous()
+        c0 = torch.zeros(self.config['dec_layers'], z.size(0), self.config['dec_dim']).to(self.device).contiguous()
+
+        # start with start-of-sentence (SOS)
+        w_id = torch.empty((1,)).fill_(self.w_vocab.word2id[self.w_vocab.SOS]).to(self.device).long()
+        gen_sentence = [self.w_vocab.SOS]
+
+        while (gen_sentence[-1] != self.w_vocab.EOS) and (len(gen_sentence) <= self.config['max_sent_len']):
+            dec_input = self.w_embed(w_id)
+            dec_input = torch.cat([dec_input.unsqueeze(0), z.unsqueeze(0)], dim=2)
+
+            next_word_rep, (h0, c0) = self.lang_decoder(dec_input, hidden_=(h0, c0))
+
+            logits = self.reco_loss.log_prob(next_word_rep.squeeze(0))
+            norm_logits = F.softmax(logits, dim=1)
+
+            # w_id = torch.multinomial(norm_logits.squeeze(0), 1)
+            w_id = norm_logits.argmax(dim=1)
+            gen_sentence += [self.w_vocab.id2word[w_id.item()]]
+
+        gen_sentence = ' '.join(gen_sentence[1:-1])
+        print(gen_sentence + '\n')
+
+    def sample_posterior(self, batch):
+        x_vec = self.w_embed(batch['source'])  # (all-batch-sents, words, dim)
+
+        if self.config['include_positions']:
+            pos1 = self.p_embed(batch['pos1'])
+            pos2 = self.p_embed(batch['pos2'])
+            x_vec = torch.cat([x_vec, pos1, pos2], dim=2)
+        x_vec = self.in_drop(x_vec)
+
+        enc_out, (hidden, cell_state) = self.lang_encoder(x_vec, len_=batch['sent_len'])  # encoder
+
+        new_input = torch.cat([hidden, cell_state], dim=1)
+        mu_ = self.hid2mu(new_input)  # use sentence representation for reconstruction
+        logvar_ = self.hid2var(new_input)
+        latent_z1 = self.reparameterisation(mu_, logvar_)
+        latent_z2 = self.reparameterisation(mu_, logvar_)
+        latent_z3 = self.reparameterisation(mu_, logvar_)
+
+        names = list(batch['bag_names'])
+        r = np.repeat(np.arange(len(names)), repeats=batch['bag_size'].cpu().tolist())
+
+        for i, (m, z1, z2, z3) in enumerate(zip(mu_, latent_z1, latent_z2, latent_z3)):  # for each sentence
+            all_w_ids = [self.w_vocab.id2word[w_.item()] for w_ in batch['source'][i] if w_.item() != 0]
+
+            arg1 = ' '.join(all_w_ids[batch['mentions'][i][0]:batch['mentions'][i][1] + 1])
+            arg2 = ' '.join(all_w_ids[batch['mentions'][i][2]:batch['mentions'][i][3] + 1])
+
+            if len(all_w_ids) <= 20 and ('NA' != names[r[i]].split(' ### ')[2]):
+                print(' '.join(all_w_ids))
+                print(arg1, '#', arg2, '#', names[r[i]])
+                print('=' * 50)
+                print('MEAN = ', end='')
+                self.greedy_decoding(m.unsqueeze(0))
+                print('SAMPLE 1 = ', end='')
+                self.greedy_decoding(z1.unsqueeze(0))
+                print('SAMPLE 2 = ', end='')
+                self.greedy_decoding(z2.unsqueeze(0))
+                print('SAMPLE 3 = ', end='')
+                self.greedy_decoding(z3.unsqueeze(0))
+                print('-' * 50)
+
+    def homotomies(self):
+        print(10 * '=', 'Generating homotomies', 10 * '=')
+
+        z1 = torch.randn([1, self.config['latent_dim']]).to(self.device)  # random sample
+        z2 = torch.randn([1, self.config['latent_dim']]).to(self.device)
+        z = 0.2 * z1 + 0.8 * z2
+
+        self.greedy_decoding(z1)
+        for i in [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]:
+            z = i * z1 + (1 - i) * z2
+            self.greedy_decoding(z)
+        self.greedy_decoding(z2)
+
+    def generation(self, examples_num=10):
+        """
+        Generate sentences given a random sample
+        """
+        print(10 * '=', 'Generating sentences', 10 * '=')
+        for i in range(examples_num):
+            z = torch.randn([1, self.config['latent_dim']]).to(self.device)
+            self.greedy_decoding(z)
+
+    def form_decoder_input(self, words, w_embed):
+        """ Word dropout: https://www.aclweb.org/anthology/K16-1002/ """
+
+        random_z2o = torch.rand(words.size()).to(self.device)
+        cond1 = torch.lt(random_z2o, self.config['teacher_force'])  # if < word_drop
+        cond2 = torch.ne(words, self.PAD_id) & \
+                torch.ne(words, self.SOS_id)  # if != PAD & SOS
+
+        dec_input = torch.where(cond1 & cond2,
+                                torch.full_like(words, self.UNK_id),
+                                words)
+        dec_input = w_embed(dec_input)
+        return dec_input
+
+    def reconstruction(self, latent_z, w_embed, batch):
+        y_vec = self.form_decoder_input(batch['source'], w_embed=w_embed)
         y_vec = torch.cat([y_vec,
                            latent_z.unsqueeze(dim=1).repeat((1, y_vec.size(1), 1))], dim=2)
 
@@ -399,7 +506,7 @@ class TextGraph(nn.Module):
         kld = torch.mean(kld)  # sum over dim, mean over batch
         return kld
 
-    def forward(self, raw_context_vec, batch):
+    def forward(self, raw_context_vec, batch, w_embed):
         # Prepare init node embedding, init adj
         context_len, mentions, bag_size = batch['sent_len'], batch['mentions'], batch['bag_size']
 
@@ -423,7 +530,7 @@ class TextGraph(nn.Module):
                 kld = self.calc_kld(mu_, logvar_)
 
             # Reconstruction
-            recon_x = self.reconstruction(latent_z, batch)
+            recon_x = self.reconstruction(latent_z, w_embed, batch)
             reco_loss = self.calc_reconstruction_loss(recon_x, batch)
 
             # sentence representation
