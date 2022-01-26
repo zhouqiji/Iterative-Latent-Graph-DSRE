@@ -377,9 +377,12 @@ class TextGraph(nn.Module):
             reco_loss, kld = self.graph_reco_loss(reco_adj, adj_label, mu=mu_, log_var=logvar_,
                                                   n_nodes=adj_label.size(-1),
                                                   norm=norm, pos_weight=pos_weight.detach())
+            # init adj is reconstructed
+            init_adj = reco_adj
+
             cur_raw_adj, cur_adj = self.learn_graph(self.graph_learner, raw_node_vec, self.graph_skip_conn,
                                                     node_mask=node_mask, graph_include_self=self.graph_include_self,
-                                                    init_adj=reco_adj)
+                                                    init_adj=init_adj)
             node_vec = torch.relu(self.encoder.graph_encoders[0](init_node_vec, cur_adj))
             node_vec = F.dropout(node_vec, self.dropout, training=self.training)
 
