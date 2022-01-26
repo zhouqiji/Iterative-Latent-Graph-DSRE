@@ -364,13 +364,12 @@ class TextGraph(nn.Module):
         init_node_vec = context_vec  # hidden embedding
         node_mask = context_mask
 
-
-
         if self.config['reconstruction']:
             # TODO: Graph VAE mu_ var_ to get output
             mean_adj_sum = init_adj.sum(-1).sum(-1).mean()
             pos_weight = float(init_adj.size(-1) * init_adj.size(-1) - mean_adj_sum) / mean_adj_sum
-            norm = init_adj.size(-1) * init_adj.size(-1) / float(init_adj.size(-1) * init_adj.size(-1) - mean_adj_sum * 2)
+            norm = init_adj.size(-1) * init_adj.size(-1) / float(
+                init_adj.size(-1) * init_adj.size(-1) - mean_adj_sum * 2)
             adj_label = init_adj
             # Reconstruction Graph
             reco_adj, mu_, logvar_ = self.gvae(init_node_vec, init_adj, node_mask)
