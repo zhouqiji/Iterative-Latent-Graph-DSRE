@@ -61,8 +61,8 @@ class TextGraph(nn.Module):
         self.linear_out = nn.Linear(self.graph_out_dim, self.output_rel_dim)
         self.hidden_out = nn.Linear(self.graph_hid_dim, self.graph_hid_dim)
         if self.config['reconstruction']:
-            self.hid2mu = nn.Linear(config['graph_out_dim'] * 2, config['latent_dim'])
-            self.hid2var = nn.Linear(config['graph_out_dim'] * 2, config['latent_dim'])
+            self.hid2mu = nn.Linear(config['enc_dim'] * 2, config['latent_dim'])
+            self.hid2var = nn.Linear(config['enc_dim'] * 2, config['latent_dim'])
             self.latent2hid = nn.Linear(config['latent_dim'], config['dec_dim'])
 
             self.reduction = nn.Linear(in_features=config['latent_dim'] + 2 * config['enc_dim'],
@@ -520,6 +520,9 @@ class TextGraph(nn.Module):
             # Create hidden code
             mu_ = self.hid2mu(new_input)
             logvar_ = self.hid2var(new_input)
+            mu_, logvar_ = torch.dropout(mu_, self.dropout, self.training), torch.dropout(logvar_,
+                                                                                          self.dropout,
+                                                                                          self.training)
             latent_z = self.re_parameterization(mu_, logvar_)
 
             if self.config['priors']:
