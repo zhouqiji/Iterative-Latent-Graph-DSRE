@@ -1,3 +1,5 @@
+import json
+
 from helpers.io import *
 from helpers.vocabs import *
 from helpers.datasets import BagREDataset
@@ -18,8 +20,10 @@ def set_seed(seed):
 
 
 def load_priors(file):
-    # TODO: impl the trained graph priors
-    pass
+    print("Loading mu vectors for pairs: {}".format(file))
+    with open(file, 'r', encoding='utf-8') as infile:
+        priors = json.load(infile)
+    return priors
 
 
 def load_data(word_vocab, prior_mus, config, pos_vocab=None, mode='train'):

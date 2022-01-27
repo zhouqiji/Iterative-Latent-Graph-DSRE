@@ -1,0 +1,84 @@
+log_interval: 100
+device: 0
+seed: 42
+
+# DATA
+relations_file: ../data/nyt10_rel2id.json
+train_data: ../data/LANG/nyt10/processed/nyt10_train.txt
+val_data: ../data/LANG/nyt10/processed/nyt10_val.txt
+test_data: ../data/LANG/nyt10/processed/nyt10_test.txt
+prior_mus_file: ../data/KB/Freebase_5train70k/pairs_mu_64d.json
+output_folder: ../saved_models/
+logs: ../logs/
+exp_name: 'nyt10'
+model_name: 'nyt10'
+
+# Hyper-parameters
+batch_size: 32
+epochs: 100
+bag_size: 500
+word_embed_dim: 50
+rel_embed_dim: 64
+pos_embed_dim: 8
+latent_dim: 64
+max_sent_len: 50
+pretrained_embeds_file: ../embeds/glove.6B.50d.txt  # vec.txt (Lin et al., 2016)
+freeze_words: False
+enc_dim: 128
+dec_dim: 128
+enc_layers: 1
+dec_layers: 1
+enc_bidirectional: True
+dec_bidirectional: False
+input_dropout: 0.3
+output_dropout: 0.3
+teacher_force: 0.0
+lr: 0.0005
+weight_decay: 0.000001
+clip: 10
+max_vocab_size: 40000
+cutoff_freq:
+lowercase: True
+primary_metric: pr_auc
+patience: 5
+task_weight: 0.6
+
+# FLAGS
+early_stop: True
+reconstruction: True
+include_positions: True
+priors: True
+freeze_pretrained: False
+
+
+# Iterative Graph config
+graph_dropout: 0.3
+bignn: False
+graph_module: 'gcn'
+graph_type: 'dynamic'
+graph_learn: True
+graph_batch_norm: True
+graph_metric_type: 'weighted_cosine' # weighted_cosine
+graph_skip_conn: 0.1 # GL: 0.1, IGL: 0.1!
+update_adj_ratio: 0.4 # IGL: 0.4!
+graph_include_self: False # cosine-KNN-GCN: False
+graph_learn_regularization: True
+smoothness_ratio: 0.5 # GL: 0.5!
+degree_ratio: 0.01 # GL: 0.01!
+sparsity_ratio: 0.3 # GL: 0.3!
+graph_learn_ratio: 0 # 0
+input_graph_knn_size: 970 #
+graph_learn_hidden_size: 70 #
+graph_learn_epsilon: 0.3 # GL: 0.3, IGL: 0.3!
+graph_learn_topk: null #
+graph_learn_num_pers: 12 # weighted_cosine: IGL: 12!
+graph_learn_hidden_size2: 70 # kernel: 90, attention: 70
+graph_learn_epsilon2: 0 # weighted_cosine: 0
+graph_learn_topk2: null # attn-GCN: 140: 64.1, kernel-GCN: 100
+graph_hops: 2
+graph_hid_dim: 128
+graph_out_dim: 128  # Tuning!
+graph_learn_max_iter: 4
+eps_adj: 8e-3
+gl_dropout: 0.01
+

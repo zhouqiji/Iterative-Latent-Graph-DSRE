@@ -527,7 +527,7 @@ class TextGraph(nn.Module):
 
             if self.config['priors']:
                 # TODO: ADD priors
-                priors_mus_expanded = None
+                priors_mus_expanded = torch.repeat_interleave(batch['prior_mus'], repeats=batch['bag_size'], dim=0)
                 kld = self.calc_kld(mu_, logvar_, priors_mus_expanded)
             else:
                 kld = self.calc_kld(mu_, logvar_)
