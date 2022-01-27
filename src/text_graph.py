@@ -520,13 +520,9 @@ class TextGraph(nn.Module):
             # Create hidden code
             mu_ = self.hid2mu(new_input)
             logvar_ = self.hid2var(new_input)
-            mu_, logvar_ = torch.dropout(mu_, self.dropout, self.training), torch.dropout(logvar_,
-                                                                                          self.dropout,
-                                                                                          self.training)
             latent_z = self.re_parameterization(mu_, logvar_)
 
             if self.config['priors']:
-                # TODO: ADD priors
                 priors_mus_expanded = torch.repeat_interleave(batch['prior_mus'], repeats=batch['bag_size'], dim=0)
                 kld = self.calc_kld(mu_, logvar_, priors_mus_expanded)
             else:
