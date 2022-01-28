@@ -1,8 +1,7 @@
 import torch
 import torch.nn.functional as F
 import torch.nn as nn
-
-from torch.nn import GELU
+from time import perf_counter
 
 
 class GraphAttentionLayer(nn.Module):
@@ -129,3 +128,25 @@ class GCN(nn.Module):
 
         x = self.graph_encoders[-1](x, node_anchor_adj)
         return x
+
+
+def sgc_precompute(features, adj, degree):
+    for i in range(degree):
+        features = torch.bmm(adj, features)
+    return features
+
+
+class SGC(nn.Module):
+    """
+    A Simple PyTorch Implementation of Logistic Regression.
+    Assuming the features have been preprocessed with k-step graph propagation.
+    """
+
+    def __init__(self, nfeat, nclass, degree, dropout):
+        super(SGC, self).__init__()
+        self.degree = degree
+        self.W = nn.Linear(nfeat, nclass)
+
+    def forward(self, x, adj):
+        x = sgc_precompute(x, adj, self.degree)
+        return self.W(x)
