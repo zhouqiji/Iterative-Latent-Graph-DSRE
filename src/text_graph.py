@@ -333,9 +333,6 @@ class TextGraph(nn.Module):
             else:
                 raise RuntimeError('Unknown graph_module: {}'.format(self.graph_module))
 
-            kld = torch.zeros((1,)).to(self.device)
-            reco_loss = 0
-            mu_ = torch.zeros((output_sent.size(0), self.config['latent_dim'])).to(self.device)
 
             # sentence representation
             # sent_rep = torch.cat([graph_hid, arg1, arg2], dim=1)
@@ -382,7 +379,7 @@ class TextGraph(nn.Module):
         if self.config['reconstruction']:
             reco_loss = self.comput_reco_loss(init_adj, cur_adj)
         else:
-            reco_loss = 0
+            reco_loss = torch.zeros((1,)).to(self.device)
 
         return loss, reco_loss, rel_probs
 
@@ -581,7 +578,6 @@ class TextGraph(nn.Module):
         else:
             mu_ = torch.zeros((enc_hidden.size(0), self.config['latent_dim'])).to(self.device)
             kld = torch.zeros((1,)).to(self.device)
-            reco_loss = torch.zeros((1,)).to(self.device)
         # raw_context_vec, context_mask, init_adj = self.prepare_init_graph(raw_context_vec,
         #                                                                   context_vec_enc, context_len)
         # # Init
