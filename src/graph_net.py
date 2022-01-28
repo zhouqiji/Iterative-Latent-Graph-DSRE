@@ -14,7 +14,6 @@ class GraphNet(BaseNet):
     The main model
     """
 
-
     # ----------------------------------------------- #
 
     def calc_task_loss(self, rel_logits, target):
@@ -26,7 +25,6 @@ class GraphNet(BaseNet):
         # Get the score
 
         return rel_probs, task_loss
-
 
     # model forward
     def forward(self, batch):
@@ -47,13 +45,13 @@ class GraphNet(BaseNet):
         ##########################
         graph_out, graph_features, reco_features = self.graph_encoder(x_vec, batch, self.w_embed)
 
-        kld, reco_loss, mu_ = reco_features
+        kld, mu_ = reco_features
 
         task_rel_probs, task_loss = self.calc_task_loss(graph_out, batch['rel'])
-        graph_loss, tmp_rel_probs = self.graph_encoder.learn_iter_graphs(graph_features,
-                                                                         batch['source'].size(0),
-                                                                         batch['bag_size'],
-                                                                         batch['rel'], self.calc_task_loss)
+        graph_loss, reco_loss, tmp_rel_probs = self.graph_encoder.learn_iter_graphs(graph_features,
+                                                                                    batch['source'].size(0),
+                                                                                    batch['bag_size'],
+                                                                                    batch['rel'], self.calc_task_loss)
 
         if tmp_rel_probs is not None:
             rel_probs = tmp_rel_probs

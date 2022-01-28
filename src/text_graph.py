@@ -5,6 +5,7 @@ from torch.nn.utils.rnn import pad_sequence
 from modules.encoders_decoders import *
 from modules.attention import *
 
+from modules.gvae import GVAE
 from modules.gnn import GCN
 from modules.graphlearn import GraphLearner, get_binarized_kneighbors_graph
 from modules.utils import batch_normalize_adj
@@ -61,6 +62,8 @@ class TextGraph(nn.Module):
         self.linear_out = nn.Linear(self.graph_out_dim, self.output_rel_dim)
         self.hidden_out = nn.Linear(self.graph_hid_dim, self.graph_hid_dim)
         if self.config['reconstruction']:
+            self.gvae = GVAE(config['enc_dim'], config['graph_hid_dim'], config['latent_dim'], self.dropout)
+
             self.hid2mu = nn.Linear(config['enc_dim'] * 2, config['latent_dim'])
             self.hid2var = nn.Linear(config['enc_dim'] * 2, config['latent_dim'])
             self.latent2hid = nn.Linear(config['latent_dim'], config['dec_dim'])
@@ -80,11 +83,6 @@ class TextGraph(nn.Module):
                                                         cutoffs=[round(vocabs['w_vocab'].n_word / 15),
                                                                  3 * round(vocabs['w_vocab'].n_word / 15)])
 
-
-        else:
-            self.reduction = nn.Linear(in_features=3 * config['graph_out_dim'],
-                                       out_features=config['rel_embed_dim'],
-                                       bias=False)
         if self.graph_module == 'gcn':
             gcn_module = GCN
             self.encoder = gcn_module(nfeat=self.enc_dim,
@@ -182,14 +180,15 @@ class TextGraph(nn.Module):
         adj_norm = batch_normalize_adj(adj, mask=mask)
         return adj_norm
 
-    def prepare_init_graph(self, raw_context, context, context_lens):
+    def prepare_init_graph(self, context, context_lens):
         context_mask = create_mask(context_lens, context.size(-2), device=self.device)
+        raw_context_vec = context
 
-        # context_vec, (hidden, cell_state) = self.ctx_encoder(raw_context_vec, context_lens)
+        context_vec, (hidden, cell_state) = self.ctx_encoder(raw_context_vec, context_lens)
 
-        init_adj = self.compute_init_adj(raw_context.detach(), self.config['input_graph_knn_size'],
+        init_adj = self.compute_init_adj(raw_context_vec.detach(), self.config['input_graph_knn_size'],
                                          mask=context_mask)
-        return raw_context, context_mask, init_adj
+        return raw_context_vec, context_vec, context_mask, init_adj, hidden, cell_state
 
     def merge_tokens(self, enc_seq, mentions):
         """
@@ -249,6 +248,11 @@ class TextGraph(nn.Module):
                 torch.matmul(out_adj, ones_vec.unsqueeze(-1)) + VERY_SMALL_NUMBER)).sum() / out_adj.shape[0] / \
                           out_adj.shape[-1]
             graph_loss += self.config['sparsity_ratio'] * torch.sum(torch.pow(out_adj, 2)) / int(np.prod(out_adj.shape))
+
+        if self.config['constrain_loss']:
+            # TODO: Constraint loss
+            # TODO: 1. mask sent, 2. sparsity and continuity
+            pass
 
         return graph_loss
 
@@ -362,7 +366,20 @@ class TextGraph(nn.Module):
             loss = graph_loss
             rel_probs = None
 
-        return loss, rel_probs
+        # Recover loss
+        if self.config['reconstruction']:
+            reco_loss = self.comput_reco_loss(init_adj, cur_adj)
+        else:
+            reco_loss = 0
+
+        return loss, reco_loss, rel_probs
+
+    def comput_reco_loss(self, init_adj, cur_adj):
+        mean_adj_sum = cur_adj.sum(-1).sum(-1).mean()
+        pos_weight = (cur_adj.size(-1) * cur_adj.size(-1) - mean_adj_sum) / mean_adj_sum
+        norm = (cur_adj.size(-1) * cur_adj.size(-1)) / (cur_adj.size(-1) * cur_adj.size(-1) - 2 * mean_adj_sum)
+        cost = norm * F.binary_cross_entropy_with_logits(init_adj, cur_adj, pos_weight=pos_weight.detach())
+        return cost
 
     def greedy_decoding(self, z):
         h0 = self.latent2hid(z).unsqueeze(0)
@@ -509,48 +526,59 @@ class TextGraph(nn.Module):
     def forward(self, raw_context_vec, batch, w_embed):
         # Prepare init node embedding, init adj
         context_len, mentions, bag_size = batch['sent_len'], batch['mentions'], batch['bag_size']
+        raw_context_vec, context_vec, context_mask, init_adj, enc_hidden, cell_state = self.prepare_init_graph(
+            raw_context_vec, context_len)
 
-        context_vec_enc, (hidden, cell_state) = self.ctx_encoder(raw_context_vec, context_len)
+        arg1, arg2 = self.merge_tokens(context_vec, mentions)  # contextualised representations of argument
+        context_vec = context_vec + arg1.unsqueeze(dim=-2) + arg2.unsqueeze(dim=-2)
 
-        arg1, arg2 = self.merge_tokens(context_vec_enc, mentions)  # contextualised representations of argument
-        context_vec_enc = context_vec_enc + arg1.unsqueeze(dim=-2) + arg2.unsqueeze(dim=-2)
+        # Init
+        raw_node_vec = raw_context_vec  # word embedding
+        init_node_vec = context_vec  # hidden embedding
+        node_mask = context_mask
 
         if self.config['reconstruction']:
-            new_input = torch.cat([hidden, cell_state], dim=1)
-            # Create hidden code
-            mu_ = self.hid2mu(new_input)
-            logvar_ = self.hid2var(new_input)
-            latent_z = self.re_parameterization(mu_, logvar_)
+            init_adj, mu_, logvar_ = self.gvae(context_vec, init_adj, node_mask)
+            kld = -0.5 / context_vec.size(-2) * torch.mean(
+                torch.sum(1 + 2 * logvar_ - mu_.pow(2) - logvar_.exp().pow(2), 1)
+            )
+        # new_input = torch.cat([hidden, cell_state], dim=1)
+        # # Create hidden code
+        # mu_ = self.hid2mu(new_input)
+        # logvar_ = self.hid2var(new_input)
+        # latent_z = self.re_parameterization(mu_, logvar_)
+        #
+        # if self.config['priors']:
+        #     priors_mus_expanded = torch.repeat_interleave(batch['prior_mus'], repeats=batch['bag_size'], dim=0)
+        #     kld = self.calc_kld(mu_, logvar_, priors_mus_expanded)
+        # else:
+        #     kld = self.calc_kld(mu_, logvar_)
+        #
+        # # Reconstruction
+        # recon_x = self.reconstruction(latent_z, w_embed, batch)
+        # reco_loss = self.calc_reconstruction_loss(recon_x, batch)
 
-            if self.config['priors']:
-                priors_mus_expanded = torch.repeat_interleave(batch['prior_mus'], repeats=batch['bag_size'], dim=0)
-                kld = self.calc_kld(mu_, logvar_, priors_mus_expanded)
-            else:
-                kld = self.calc_kld(mu_, logvar_)
-
-            # Reconstruction
-            recon_x = self.reconstruction(latent_z, w_embed, batch)
-            reco_loss = self.calc_reconstruction_loss(recon_x, batch)
-
-            # sentence representation
-            raw_context_vec, context_mask, init_adj = self.prepare_init_graph(
-                raw_context_vec, recon_x, context_len)
-            # Init
-            raw_node_vec = raw_context_vec  # word embedding
-            init_node_vec = context_vec_enc  # hidden embedding
-            node_mask = context_mask
+        # sentence representation
+        # raw_context_vec, context_mask, init_adj = self.prepare_init_graph(
+        #     raw_context_vec, recon_x, context_len)
+        # # Init
+        # raw_node_vec = raw_context_vec  # word embedding
+        # init_node_vec = context_vec_enc  # hidden embedding
+        # node_mask = context_mask
 
         else:
-            raw_context_vec, context_mask, init_adj = self.prepare_init_graph(raw_context_vec,
-                                                                              context_vec_enc, context_len)
-            # Init
-            raw_node_vec = raw_context_vec  # word embedding
-            init_node_vec = context_vec_enc  # hidden embedding
-            node_mask = context_mask
-            kld = torch.zeros((1,)).to(self.device)
-            reco_loss = {'sum': torch.zeros((1,)).to(self.device),
-                         'mean': torch.zeros((1,)).to(self.device)}
-            mu_ = torch.zeros((hidden.size(0), self.config['latent_dim'])).to(self.device)
+            mu_ = 0
+            kld = 0
+        # raw_context_vec, context_mask, init_adj = self.prepare_init_graph(raw_context_vec,
+        #                                                                   context_vec_enc, context_len)
+        # # Init
+        # raw_node_vec = raw_context_vec  # word embedding
+        # init_node_vec = context_vec_enc  # hidden embedding
+        # node_mask = context_mask
+        # kld = torch.zeros((1,)).to(self.device)
+        # reco_loss = {'sum': torch.zeros((1,)).to(self.device),
+        #              'mean': torch.zeros((1,)).to(self.device)}
+        # mu_ = torch.zeros((hidden.size(0), self.config['latent_dim'])).to(self.device)
 
         cur_raw_adj, cur_adj = self.learn_graph(self.graph_learner, raw_node_vec, self.graph_skip_conn,
                                                 node_mask=node_mask, graph_include_self=self.graph_include_self,
@@ -570,7 +598,7 @@ class TextGraph(nn.Module):
         # sent_rep = torch.cat([graph_hid, arg1, arg2], dim=1)
         output = self.compute_output(output, bag_size)
 
-        rec_features = (kld, reco_loss, mu_)
+        rec_features = (kld, mu_)
         graph_features = (init_adj, cur_raw_adj, cur_adj, raw_node_vec, init_node_vec, node_vec, node_mask)
 
         return output, graph_features, rec_features
