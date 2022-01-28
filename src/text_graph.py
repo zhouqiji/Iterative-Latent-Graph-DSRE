@@ -222,7 +222,7 @@ class TextGraph(nn.Module):
         ))
         return cost, KLD
 
-    def add_batch_graph_loss(self, out_adj, features, keep_batch_dim=False):
+    def add_batch_graph_loss(self, out_adj, features, keep_batch_dim=False, sent_length=None):
         # Graph regularization
         if keep_batch_dim:
             graph_loss = []
@@ -257,7 +257,31 @@ class TextGraph(nn.Module):
         if self.config['constrain_loss']:
             # TODO: Constraint loss
             # TODO: 1. mask sent, 2. sparsity and continuity
-            pass
+
+            l0 = out_adj.sum(2) / (sent_length.unsqueeze(1) + 1e-9)
+            l0 = l0.sum(1) / (sent_length + 1e-9)
+            l0 = l0.sum() / sent_length.size(0)
+            # `l0` now has the expected selection rate for this mini-batch
+            # we now follow the steps Algorithm 1 (page 7) of this paper:
+            # https://arxiv.org/abs/1810.00597
+            # to enforce the constraint that we want l0 to be not higher
+            # than `self.selection` (the target sparsity rate)
+
+            # lagrange dissatisfaction, batch average of the constraint
+            c0_ma = torch.full((1,), 0., device=self.device)
+            lambda0 = torch.full((1, ), float(self.config['lambda_init']), device=self.device)
+
+            c0_hat = (l0 - self.config['constrain_rate'])
+            # moving average of the constraint
+            c0_ma = self.config['lagrange_alpha'] * c0_ma + \
+                         (1 - self.config['lagrange_alpha']) * c0_hat.item()
+            # compute smoothed constraint (equals moving average c0_ma)
+            c0 = c0_hat + (c0_ma.detach() - c0_hat.detach())
+
+            # update lambda
+            lambda0 = lambda0 * torch.exp(
+                self.config['lagrange_lr'] * c0.detach())
+            graph_loss += (lambda0.detach() * c0).item()
 
         return graph_loss
 
@@ -275,9 +299,9 @@ class TextGraph(nn.Module):
         return diff_
 
     def learn_iter_graphs(self, graph_features, source_size, bag_size, targets, loss_fn):
-        init_adj, cur_raw_adj, cur_adj, raw_node_vec, init_node_vec, node_vec, node_mask = graph_features
+        init_adj, cur_raw_adj, cur_adj, raw_node_vec, init_node_vec, node_vec, node_mask, sent_len = graph_features
         if self.config['graph_learn'] and self.config['graph_learn_regularization']:
-            graph_loss = self.add_batch_graph_loss(cur_raw_adj, raw_node_vec)
+            graph_loss = self.add_batch_graph_loss(cur_raw_adj, raw_node_vec, sent_length=sent_len)
         else:
             graph_loss = 0
 
@@ -333,7 +357,6 @@ class TextGraph(nn.Module):
             else:
                 raise RuntimeError('Unknown graph_module: {}'.format(self.graph_module))
 
-
             # sentence representation
             # sent_rep = torch.cat([graph_hid, arg1, arg2], dim=1)
             output = self.compute_output(output_sent, bag_size)
@@ -348,7 +371,7 @@ class TextGraph(nn.Module):
 
             if self.config['graph_learn'] and self.config['graph_learn_regularization']:
                 tmp_graph_loss = self.add_batch_graph_loss(cur_raw_adj, raw_node_vec,
-                                                           keep_batch_dim=True)
+                                                           keep_batch_dim=True,sent_length=sent_len)
                 loss += batch_stop_indicators.float() * tmp_graph_loss
 
             if self.config['graph_learn'] and not self.config['graph_learn_ratio'] in (None, 0):
@@ -614,6 +637,7 @@ class TextGraph(nn.Module):
         output = self.compute_output(output_node, bag_size)
 
         rec_features = (kld, mu_)
-        graph_features = (init_adj, cur_raw_adj, cur_adj, raw_node_vec, init_node_vec, output_node, node_mask)
+        graph_features = (init_adj, cur_raw_adj, cur_adj, raw_node_vec, init_node_vec, output_node,
+                          node_mask, batch['sent_len'])
 
         return output, graph_features, rec_features
