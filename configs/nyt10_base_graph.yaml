@@ -81,4 +81,5 @@ graph_out_dim: 128
 graph_learn_max_iter: 4
 eps_adj: 8e-3
 gl_dropout: 0.01
+constrain_loss: True
 
