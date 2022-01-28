@@ -579,8 +579,9 @@ class TextGraph(nn.Module):
         # node_mask = context_mask
 
         else:
-            mu_ = 0
-            kld = 0
+            mu_ = torch.zeros((enc_hidden.size(0), self.config['latent_dim'])).to(self.device)
+            kld = torch.zeros((1,)).to(self.device)
+            reco_loss = torch.zeros((1,)).to(self.device)
         # raw_context_vec, context_mask, init_adj = self.prepare_init_graph(raw_context_vec,
         #                                                                   context_vec_enc, context_len)
         # # Init
