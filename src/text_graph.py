@@ -316,11 +316,11 @@ class TextGraph(nn.Module):
             if update_adj_ratio is not None:
                 cur_adj = update_adj_ratio * cur_adj + (1 - update_adj_ratio) * first_adj
 
-            node_vec = torch.relu(self.encoder.graph_encoders[0](init_node_vec, cur_adj))
-            node_vec = F.dropout(node_vec, self.dropout, training=self.training)
-
             # TODO: Test SGC
             if self.graph_module == 'gcn':
+                node_vec = torch.relu(self.encoder.graph_encoders[0](init_node_vec, cur_adj))
+                node_vec = F.dropout(node_vec, self.dropout, training=self.training)
+
                 # Add mid GNN layers
                 for encoder in self.encoder.graph_encoders[1:-1]:
                     node_vec = torch.relu(encoder(node_vec, cur_adj))
@@ -328,7 +328,8 @@ class TextGraph(nn.Module):
                 # Graph Output
                 output_sent = self.encoder.graph_encoders[-1](node_vec, cur_adj)
             elif self.graph_module == 'sgc':
-                output_sent = self.encoder(node_vec, cur_adj)
+                output_sent = self.encoder(init_node_vec, cur_adj)
+                output_sent = F.dropout(torch.relu(output_sent), self.dropout, training=self.training)
             else:
                 raise RuntimeError('Unknown graph_module: {}'.format(self.graph_module))
 
@@ -594,27 +595,28 @@ class TextGraph(nn.Module):
         cur_raw_adj, cur_adj = self.learn_graph(self.graph_learner, raw_node_vec, self.graph_skip_conn,
                                                 node_mask=node_mask, graph_include_self=self.graph_include_self,
                                                 init_adj=init_adj)
-        node_vec = torch.relu(self.encoder.graph_encoders[0](init_node_vec, cur_adj))
-        node_vec = F.dropout(node_vec, self.dropout, training=self.training)
 
         # TODO: TEST SGC
         if self.graph_module == 'gcn':
+            node_vec = torch.relu(self.encoder.graph_encoders[0](init_node_vec, cur_adj))
+            node_vec = F.dropout(node_vec, self.dropout, training=self.training)
             # Add mid GNN layers
             for encoder in self.encoder.graph_encoders[1:-1]:
                 node_vec = torch.relu(encoder(node_vec, cur_adj))
                 node_vec = F.dropout(node_vec, self.dropout, training=self.training)
             # Graph Output
-            output = self.encoder.graph_encoders[-1](node_vec, cur_adj)
+            output_node = self.encoder.graph_encoders[-1](node_vec, cur_adj)
         elif self.graph_module == 'sgc':
-            output = self.encoder(node_vec, cur_adj)
+            output = self.encoder(init_node_vec, cur_adj)
+            output_node = F.dropout(torch.relu(output), self.dropout, training=self.training)
         else:
             raise RuntimeError('Unknown graph_module: {}'.format(self.graph_module))
 
         # sentence representation
         # sent_rep = torch.cat([graph_hid, arg1, arg2], dim=1)
-        output = self.compute_output(output, bag_size)
+        output = self.compute_output(output_node, bag_size)
 
         rec_features = (kld, mu_)
-        graph_features = (init_adj, cur_raw_adj, cur_adj, raw_node_vec, init_node_vec, node_vec, node_mask)
+        graph_features = (init_adj, cur_raw_adj, cur_adj, raw_node_vec, init_node_vec, output_node, node_mask)
 
         return output, graph_features, rec_features
