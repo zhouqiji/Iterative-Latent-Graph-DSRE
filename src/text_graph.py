@@ -64,7 +64,8 @@ class TextGraph(nn.Module):
         if self.config['reconstruction']:
             self.gvae = GVAE(config['enc_dim'], config['graph_hid_dim'], config['latent_dim'],
                              self.dropout,
-                             config['graph_hops'])
+                             config['graph_hops'],
+                             self.graph_module)
 
             self.hid2mu = nn.Linear(config['enc_dim'] * 2, config['latent_dim'])
             self.hid2var = nn.Linear(config['enc_dim'] * 2, config['latent_dim'])

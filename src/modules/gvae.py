@@ -6,15 +6,17 @@ from .gnn import GCN, SGC
 
 
 class GVAE(nn.Module):
-    def __init__(self, input_dim, hid_dim1, hid_dim2, dropout, hops):
+    def __init__(self, input_dim, hid_dim1, hid_dim2, dropout, hops, gcn_type):
         super(GVAE, self).__init__()
 
-        self.gc_emb = SGC(input_dim, hid_dim1, hops, dropout)
-        self.gc_mu = SGC(hid_dim1, hid_dim2, hops, dropout)
-        self.gc_var = SGC(hid_dim1, hid_dim2, hops, dropout)
-        # self.gc_emb = GCN(input_dim, hid_dim1, hid_dim1, 1, dropout)
-        # self.gc_mu = GCN(hid_dim1, hid_dim2, hid_dim2, 1, dropout)
-        # self.gc_var = GCN(hid_dim1, hid_dim2, hid_dim2, 1, dropout)
+        if gcn_type == 'gcn':
+            self.gc_emb = GCN(input_dim, hid_dim1, hid_dim1, 1, dropout)
+            self.gc_mu = GCN(hid_dim1, hid_dim2, hid_dim2, 1, dropout)
+            self.gc_var = GCN(hid_dim1, hid_dim2, hid_dim2, 1, dropout)
+        else:
+            self.gc_emb = SGC(input_dim, hid_dim1, hops, dropout)
+            self.gc_mu = SGC(hid_dim1, hid_dim2, hops, dropout)
+            self.gc_var = SGC(hid_dim1, hid_dim2, hops, dropout)
 
         self.dc = InnerProductDecoder(dropout)
 
@@ -23,9 +25,9 @@ class GVAE(nn.Module):
         return self.gc_mu(hid1, adj), self.gc_var(hid1, adj)
 
     def re_parameterize(self, mu, logvar):
-            std = torch.exp(0.5 * logvar)
-            eps = torch.randn_like(std)
-            return eps.mul(std).add_(mu)
+        std = torch.exp(0.5 * logvar)
+        eps = torch.randn_like(std)
+        return eps.mul(std).add_(mu)
 
     def forward(self, x, adj, node_mask):
         mu, log_var = self.encode(x, adj)
