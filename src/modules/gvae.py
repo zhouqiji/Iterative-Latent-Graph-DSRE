@@ -9,12 +9,12 @@ class GVAE(nn.Module):
     def __init__(self, input_dim, hid_dim1, hid_dim2, dropout, hops):
         super(GVAE, self).__init__()
 
-        self.gc_emb = SGC(input_dim, hid_dim1, hops, dropout)
-        self.gc_mu = SGC(hid_dim1, hid_dim2, hops, dropout)
-        self.gc_var = SGC(hid_dim1, hid_dim2, hops, dropout)
-        # self.gc_emb = GCN(input_dim, hid_dim1, hid_dim1, 1, dropout)
-        # self.gc_mu = GCN(hid_dim1, hid_dim2, hid_dim2, 1, dropout)
-        # self.gc_var = GCN(hid_dim1, hid_dim2, hid_dim2, 1, dropout)
+        # self.gc_emb = SGC(input_dim, hid_dim1, hops, dropout)
+        # self.gc_mu = SGC(hid_dim1, hid_dim2, hops, dropout)
+        # self.gc_var = SGC(hid_dim1, hid_dim2, hops, dropout)
+        self.gc_emb = GCN(input_dim, hid_dim1, hid_dim1, 1, dropout)
+        self.gc_mu = GCN(hid_dim1, hid_dim2, hid_dim2, 1, dropout)
+        self.gc_var = GCN(hid_dim1, hid_dim2, hid_dim2, 1, dropout)
 
         self.dc = InnerProductDecoder(dropout)
 
