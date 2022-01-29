@@ -73,7 +73,7 @@ def transform(x):
 def load_data(args, kg_files):
     # Load train + validation
     df_train = []
-    with open(args.train_file, 'r') as infile_train, open(args.val_file, 'r') as infile_val:
+    with open(args.train_file, 'r', encoding='utf-8') as infile_train, open(args.val_file, 'r', encoding='utf-8') as infile_val:
         for i, line in enumerate(tqdm(infile_train, desc='Loading training data')):
             a_dict = json.loads(line)
             if args.data == 'Freebase':
@@ -90,7 +90,7 @@ def load_data(args, kg_files):
 
     # Load test
     df_test = []
-    with open(args.test_file, 'r') as infile:
+    with open(args.test_file, 'r', encoding='utf-8') as infile:
         for k, line in enumerate(tqdm(infile, desc='Loading test data')):
             a_dict = json.loads(line)
             if args.data == 'Freebase':
@@ -101,7 +101,7 @@ def load_data(args, kg_files):
     # Read KB
     df_kg = []
     for kg_file in kg_files:
-        with open(kg_file, 'r') as infile:
+        with open(kg_file, 'r', encoding='utf-8') as infile:
             for line in tqdm(infile, desc='Loading KG'):
                 a1, r, a2 = line.rstrip().split('\t')
                 df_kg.append((a1, r, a2))
@@ -135,7 +135,7 @@ def main(args):
         logging.info("Downloading Wikidata dataset ...")
         wiki_file = wget.download('https://www.dropbox.com/s/6sbhm0rwo4l73jq/wikidata5m_transductive.tar.gz?dl=1',
                                   'wikidata5m_transductive.tar.gz')
-        with tarfile.open(wiki_file) as f:
+        with tarfile.open(wiki_file, encoding='utf-8') as f:
             f.extractall('./')
 
         for file in os.listdir('./'):
@@ -200,27 +200,28 @@ def main(args):
     logging.info('Writing data to files ...')
 
     if args.data == 'Wikidata':
-        with open(os.path.join(args.data, 'train.tsv'), 'w') as outfile:
+        with open(os.path.join(args.data, 'train.tsv'), 'w', encoding='utf-8') as outfile:
             for arg1, rel, arg2 in final_kg:
                 outfile.write('{}\t{}\t{}\n'.format(arg1, rel, arg2))
 
-        with open(os.path.join(args.data, 'valid.tsv'), 'w') as outfile1, \
-                open(os.path.join(args.data, 'test.tsv'), 'w') as outfile2:
-            with open(os.path.join(args.data, 'wikidata5m_transductive_test.txt'), 'r') as infile:
+        with open(os.path.join(args.data, 'valid.tsv'), 'w', encoding='utf-8') as outfile1, \
+                open(os.path.join(args.data, 'test.tsv'), 'w', encoding='utf-8') as outfile2:
+            with open(os.path.join(args.data, 'wikidata5m_transductive_test.txt'), 'r', encoding='utf-8') as infile:
                 for line in infile:
                     arg1, rel, arg2 = line.rstrip().split('\t')
                     outfile1.write('{}\t{}\t{}\n'.format(arg1, rel, arg2))
                     outfile2.write('{}\t{}\t{}\n'.format(arg1, rel, arg2))
     else:
-        with open(os.path.join(args.data, 'train.tsv'), 'w') as outfile:
+        with open(os.path.join(args.data, 'train.tsv'), 'w', encoding='utf-8') as outfile:
             for arg1, rel, arg2 in final_kg[:-5000]:
                 outfile.write('{}\t{}\t{}\n'.format(arg1, rel, arg2))
 
-        with open(os.path.join(args.data, 'valid.tsv'), 'w') as outfile1, \
-                open(os.path.join(args.data, 'test.tsv'), 'w') as outfile2:
+        with open(os.path.join(args.data, 'valid.tsv'), 'w', encoding='utf-8') as outfile1, \
+                open(os.path.join(args.data, 'test.tsv'), 'w', encoding='utf-8') as outfile2:
             for arg1, rel, arg2 in final_kg[-5000:]:
                 outfile1.write('{}\t{}\t{}\n'.format(arg1, rel, arg2))
                 outfile2.write('{}\t{}\t{}\n'.format(arg1, rel, arg2))
+
 
 
 if __name__ == "__main__":
