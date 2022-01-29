@@ -54,7 +54,7 @@ freeze_pretrained: False
 # Iterative Graph config
 graph_dropout: 0.3
 bignn: False
-graph_module: 'gcn'   # gcn or sgc
+graph_module: 'sgc'   # gcn or sgc
 graph_type: 'dynamic'
 graph_learn: True
 graph_batch_norm: True
@@ -82,7 +82,7 @@ graph_learn_max_iter: 4
 eps_adj: 8e-3
 gl_dropout: 0.01
 constrain_loss: True
-constrain_rate: 0.2
+constrain_rate: 0.15
 lagrange_lr: 0.01
 lagrange_alpha: 0.99
 lambda_init: 1e-5
