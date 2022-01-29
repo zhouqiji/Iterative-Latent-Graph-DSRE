@@ -54,7 +54,7 @@ freeze_pretrained: False
 # Iterative Graph config
 graph_dropout: 0.3
 bignn: False
-graph_module: 'sgc'
+graph_module: 'gcn'
 graph_type: 'dynamic'
 graph_learn: True
 graph_batch_norm: True
