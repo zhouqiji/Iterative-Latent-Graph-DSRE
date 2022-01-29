@@ -571,9 +571,17 @@ class TextGraph(nn.Module):
 
         if self.config['reconstruction']:
             init_adj, mu_, logvar_ = self.gvae(context_vec, init_adj, node_mask)
-            kld = -0.5 / context_vec.size(-2) * torch.mean(
-                torch.sum(1 + 2 * logvar_ - mu_.pow(2) - logvar_.exp().pow(2), 1)
-            )
+            if self.config['priors']:
+                prior_mus_expanded = torch.repeat_interleave(batch['prior_mus'], repeats=batch['bag_size'], dim=0)
+                logvar_, mu_ = logvar_.mean(-2), mu_.mean(-2)
+                mu_diff = prior_mus_expanded - mu_
+                kld = -0.5 / context_vec.size(-2) * torch.mean(
+                    torch.sum(1 + 2 * logvar_ - mu_diff.pow(2) - logvar_.exp().pow(2), 1)
+                )
+            else:
+                kld = -0.5 / context_vec.size(-2) * torch.mean(
+                    torch.sum(1 + 2 * logvar_ - mu_.pow(2) - logvar_.exp().pow(2), 1)
+                )
         # new_input = torch.cat([hidden, cell_state], dim=1)
         # # Create hidden code
         # mu_ = self.hid2mu(new_input)
