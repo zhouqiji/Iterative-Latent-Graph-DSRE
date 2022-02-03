@@ -10,13 +10,13 @@ class GVAE(nn.Module):
         super(GVAE, self).__init__()
 
         if gcn_type == 'gcn':
-            self.gc_emb = GCN(input_dim, hid_dim1, hid_dim1, hops, dropout)
-            self.gc_mu = GCN(hid_dim1, hid_dim2, hid_dim2, hops, dropout)
-            self.gc_var = GCN(hid_dim1, hid_dim2, hid_dim2, hops, dropout)
+            self.gc_emb = GCN(input_dim, hid_dim1, hid_dim1, 1, dropout)
+            self.gc_mu = GCN(hid_dim1, hid_dim2, hid_dim2, 1, dropout)
+            self.gc_var = GCN(hid_dim1, hid_dim2, hid_dim2, 1, dropout)
         elif gcn_type == 'sgc':
-            self.gc_emb = SGC(input_dim, hid_dim1, hops, dropout)
-            self.gc_mu = SGC(hid_dim1, hid_dim2, hops, dropout)
-            self.gc_var = SGC(hid_dim1, hid_dim2, hops, dropout)
+            self.gc_emb = SGC(input_dim, hid_dim1, 1, dropout)
+            self.gc_mu = SGC(hid_dim1, hid_dim2, 1, dropout)
+            self.gc_var = SGC(hid_dim1, hid_dim2, 1, dropout)
         else:
             raise TypeError("The type of {} is not a valid GNN".format(gcn_type))
 
