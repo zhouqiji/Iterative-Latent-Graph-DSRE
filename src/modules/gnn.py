@@ -130,10 +130,9 @@ class GCN(nn.Module):
         return x
 
 
-def sgc_precompute(features, adj, degree, norm=None):
+def sgc_precompute(features, adj, degree):
     for i in range(degree):
         features = torch.bmm(adj, features)
-        norm(features)
     return features
 
 
@@ -147,8 +146,7 @@ class SGC(nn.Module):
         super(SGC, self).__init__()
         self.degree = degree
         self.W = nn.Linear(nfeat, nclass)
-        self.layer_norm = nn.LayerNorm(nfeat)
 
     def forward(self, x, adj):
-        x = sgc_precompute(x, adj, self.degree, self.layer_norm)
+        x = sgc_precompute(x, adj, self.degree)
         return self.W(x)
