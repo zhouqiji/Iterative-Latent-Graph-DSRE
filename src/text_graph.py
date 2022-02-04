@@ -67,10 +67,6 @@ class TextGraph(nn.Module):
                              config['graph_hops'],
                              self.graph_module)
 
-            self.hid2mu = nn.Linear(config['enc_dim'] * 2, config['latent_dim'])
-            self.hid2var = nn.Linear(config['enc_dim'] * 2, config['latent_dim'])
-            self.latent2hid = nn.Linear(config['latent_dim'], config['dec_dim'])
-
             self.reduction = nn.Linear(in_features=config['latent_dim'] + 2 * config['enc_dim'],
                                        out_features=config['rel_embed_dim'],
                                        bias=False)
@@ -571,10 +567,11 @@ class TextGraph(nn.Module):
         node_mask = context_mask
 
         if self.config['reconstruction']:
+            # Get the reconstruction adj
             init_adj, mu_, logvar_ = self.gvae(context_vec, init_adj, node_mask)
+
             if self.config['priors']:
-                prior_mus_expanded = torch.repeat_interleave(batch['prior_mus'], repeats=batch['bag_size'], dim=0)
-                logvar_, mu_ = logvar_.sum(-2), mu_.sum(-2)
+                prior_mus_expanded = torch.repeat_interleave(batch['prior_mus'], repeats=batch['bag_size'], dim=0).unsqueeze(-2)
                 mu_diff = prior_mus_expanded - mu_
                 kld = -0.5 * (1 + logvar_ - mu_diff.pow(2) - logvar_.exp())
             else:
@@ -625,7 +622,6 @@ class TextGraph(nn.Module):
                                                 node_mask=node_mask, graph_include_self=self.graph_include_self,
                                                 init_adj=init_adj)
 
-        # TODO: TEST SGC
         if self.graph_module == 'gcn':
             node_vec = torch.relu(self.encoder.graph_encoders[0](init_node_vec, cur_adj))
             node_vec = F.dropout(node_vec, self.dropout, training=self.training)
