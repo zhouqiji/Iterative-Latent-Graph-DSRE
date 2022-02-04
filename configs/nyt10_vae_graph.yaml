@@ -82,7 +82,7 @@ graph_learn_max_iter: 4
 eps_adj: 8e-3
 gl_dropout: 0.01
 constrain_loss: True
-constrain_rate: 0.15
+constrain_rate: 0.2
 lagrange_lr: 0.01
 lagrange_alpha: 0.99
 lambda_init: 1e-5
