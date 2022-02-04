@@ -574,12 +574,13 @@ class TextGraph(nn.Module):
                 prior_mus_expanded = torch.repeat_interleave(batch['prior_mus'], repeats=batch['bag_size'],
                                                              dim=0).unsqueeze(-2)
                 mu_diff = prior_mus_expanded - mu_
-                kld = -0.5 * (1 + logvar_ - mu_diff.pow(2) - logvar_.exp())
+                kld = -0.5 / mu_.size(-2) * torch.mean(torch.sum(
+                    1 + 2 * logvar_ - mu_diff.pow(2) - logvar_.exp().pow(2), 1
+                ))
             else:
-                kld = -0.5 * (1 + logvar_ - mu_.pow(2) - logvar_.exp())
-
-            kld = torch.sum(kld, dim=-1)
-            kld = torch.mean(kld)
+                kld = -0.5 / mu_.size(-2) * torch.mean(torch.sum(
+                    1 + 2 * logvar_ - mu_.pow(2) - logvar_.exp().pow(2), 1
+                ))
 
 
 
