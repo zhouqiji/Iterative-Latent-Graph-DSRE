@@ -270,12 +270,12 @@ class TextGraph(nn.Module):
 
             # lagrange dissatisfaction, batch average of the constraint
             c0_ma = torch.full((1,), 0., device=self.device)
-            lambda0 = torch.full((1, ), float(self.config['lambda_init']), device=self.device)
+            lambda0 = torch.full((1,), float(self.config['lambda_init']), device=self.device)
 
             c0_hat = (l0 - self.config['constrain_rate'])
             # moving average of the constraint
             c0_ma = self.config['lagrange_alpha'] * c0_ma + \
-                         (1 - self.config['lagrange_alpha']) * c0_hat.item()
+                    (1 - self.config['lagrange_alpha']) * c0_hat.item()
             # compute smoothed constraint (equals moving average c0_ma)
             c0 = c0_hat + (c0_ma.detach() - c0_hat.detach())
 
@@ -372,7 +372,7 @@ class TextGraph(nn.Module):
 
             if self.config['graph_learn'] and self.config['graph_learn_regularization']:
                 tmp_graph_loss = self.add_batch_graph_loss(cur_raw_adj, raw_node_vec,
-                                                           keep_batch_dim=True,sent_length=sent_len)
+                                                           keep_batch_dim=True, sent_length=sent_len)
                 loss += batch_stop_indicators.float() * tmp_graph_loss
 
             if self.config['graph_learn'] and not self.config['graph_learn_ratio'] in (None, 0):
@@ -574,15 +574,15 @@ class TextGraph(nn.Module):
             init_adj, mu_, logvar_ = self.gvae(context_vec, init_adj, node_mask)
             if self.config['priors']:
                 prior_mus_expanded = torch.repeat_interleave(batch['prior_mus'], repeats=batch['bag_size'], dim=0)
-                logvar_, mu_ = logvar_.mean(-2), mu_.mean(-2)
+                logvar_, mu_ = logvar_.sum(-2), mu_.sum(-2)
                 mu_diff = prior_mus_expanded - mu_
-                kld = -0.5 / context_vec.size(-2) * torch.mean(
-                    torch.sum(1 + 2 * logvar_ - mu_diff.pow(2) - logvar_.exp().pow(2), 1)
-                )
+                kld = -0.5 * (1 + logvar_ - mu_diff.pow(2) - logvar_.exp())
             else:
-                kld = -0.5 / context_vec.size(-2) * torch.mean(
-                    torch.sum(1 + 2 * logvar_ - mu_.pow(2) - logvar_.exp().pow(2), 1)
-                )
+                kld = -0.5 * (1 + logvar_ - mu_.pow(2) - logvar_.exp())
+
+            kld = torch.sum(kld, dim=1)
+            kld = torch.mean(kld)
+
         # new_input = torch.cat([hidden, cell_state], dim=1)
         # # Create hidden code
         # mu_ = self.hid2mu(new_input)
