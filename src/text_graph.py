@@ -571,38 +571,17 @@ class TextGraph(nn.Module):
             init_adj, mu_, logvar_ = self.gvae(context_vec, init_adj, node_mask)
 
             if self.config['priors']:
-                prior_mus_expanded = torch.repeat_interleave(batch['prior_mus'], repeats=batch['bag_size'], dim=0).unsqueeze(-2)
+                prior_mus_expanded = torch.repeat_interleave(batch['prior_mus'], repeats=batch['bag_size'],
+                                                             dim=0).unsqueeze(-2)
                 mu_diff = prior_mus_expanded - mu_
                 kld = -0.5 * (1 + logvar_ - mu_diff.pow(2) - logvar_.exp())
             else:
                 kld = -0.5 * (1 + logvar_ - mu_.pow(2) - logvar_.exp())
 
-            kld = torch.sum(kld, dim=1)
+            kld = torch.sum(kld, dim=-1)
             kld = torch.mean(kld)
 
-        # new_input = torch.cat([hidden, cell_state], dim=1)
-        # # Create hidden code
-        # mu_ = self.hid2mu(new_input)
-        # logvar_ = self.hid2var(new_input)
-        # latent_z = self.re_parameterization(mu_, logvar_)
-        #
-        # if self.config['priors']:
-        #     priors_mus_expanded = torch.repeat_interleave(batch['prior_mus'], repeats=batch['bag_size'], dim=0)
-        #     kld = self.calc_kld(mu_, logvar_, priors_mus_expanded)
-        # else:
-        #     kld = self.calc_kld(mu_, logvar_)
-        #
-        # # Reconstruction
-        # recon_x = self.reconstruction(latent_z, w_embed, batch)
-        # reco_loss = self.calc_reconstruction_loss(recon_x, batch)
 
-        # sentence representation
-        # raw_context_vec, context_mask, init_adj = self.prepare_init_graph(
-        #     raw_context_vec, recon_x, context_len)
-        # # Init
-        # raw_node_vec = raw_context_vec  # word embedding
-        # init_node_vec = context_vec_enc  # hidden embedding
-        # node_mask = context_mask
 
         else:
             mu_ = torch.zeros((enc_hidden.size(0), self.config['latent_dim'])).to(self.device)
