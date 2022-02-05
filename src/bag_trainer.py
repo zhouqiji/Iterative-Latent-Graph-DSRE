@@ -159,10 +159,12 @@ class Trainer(BaseTrainer):
             if self.config['reconstruction']:
                 # loss = (self.config['task_weight'] * task_loss) + \
                 #        (1 - self.config['task_weight']) * (rec_loss['sum'] + (kl_w[step] * kld) + graph_loss)
-                loss = self.config['task_weight'] * task_loss + (1 - self.config['task_weight']) * (
-                            rec_loss + kl_w[step] * kld + graph_loss)
+                # TODO: Test without kl_w and graph_loss + task_loss
+                loss = self.config['task_weight'] * (task_loss + graph_loss) + (1 - self.config['task_weight']) * (
+                        rec_loss + kld)
             else:
-                loss = (self.config['task_weight'] * task_loss) + (1 - self.config['task_weight']) * graph_loss
+                # loss = (self.config['task_weight'] * task_loss) + (1 - self.config['task_weight']) * graph_loss
+                loss = task_loss + graph_loss
 
             loss.backward()
 
@@ -212,10 +214,10 @@ class Trainer(BaseTrainer):
 
                 task_loss, graph_loss, rel_probs, kld, rec_loss, latent_z = self.model(batch)  # forward pass
 
-                # TODO: update for graph vae
+                # TODO: Test for loss setting
                 if self.config['reconstruction']:
-                    loss = (self.config['task_weight'] * task_loss) + \
-                           (1 - self.config['task_weight']) * (rec_loss + kld) + graph_loss
+                    loss = self.config['task_weight'] * (task_loss + graph_loss) + (1 - self.config['task_weight']) * (
+                                rec_loss + kld)
                 else:
                     loss = task_loss + graph_loss
 

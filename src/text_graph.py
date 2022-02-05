@@ -337,7 +337,6 @@ class TextGraph(nn.Module):
             if update_adj_ratio is not None:
                 cur_adj = update_adj_ratio * cur_adj + (1 - update_adj_ratio) * first_adj
 
-            # TODO: Test SGC
             if self.graph_module == 'gcn':
                 node_vec = torch.relu(self.encoder.graph_encoders[0](init_node_vec, cur_adj))
                 node_vec = F.dropout(node_vec, self.dropout, training=self.training)
@@ -407,7 +406,7 @@ class TextGraph(nn.Module):
         mean_adj_sum = cur_adj.sum(-1).sum(-1).mean()
         pos_weight = (cur_adj.size(-1) * cur_adj.size(-1) - mean_adj_sum) / mean_adj_sum
         norm = (cur_adj.size(-1) * cur_adj.size(-1)) / (cur_adj.size(-1) * cur_adj.size(-1) - 2 * mean_adj_sum)
-        cost = norm * F.binary_cross_entropy_with_logits(init_adj, cur_adj, pos_weight=pos_weight.detach())
+        cost = norm * F.binary_cross_entropy_with_logits(init_adj, cur_adj, pos_weight=pos_weight)
         return cost
 
     def greedy_decoding(self, z):
@@ -571,18 +570,18 @@ class TextGraph(nn.Module):
             init_adj, mu_, logvar_ = self.gvae(context_vec, init_adj, node_mask)
 
             if self.config['priors']:
-                prior_mus_expanded = torch.repeat_interleave(batch['prior_mus'], repeats=batch['bag_size'],
-                                                             dim=0).unsqueeze(-2)
+                prior_mus_expanded = torch.repeat_interleave(batch['prior_mus'], repeats=batch['bag_size'], dim=0)
+                prior_mus_expanded = prior_mus_expanded.unsqueeze(-2)
+                # mu_, logvar_ = self.graph_maxpool(mu_.transpose(-1, -2)), self.graph_maxpool(logvar_.transpose(-1, -2))
+
                 mu_diff = prior_mus_expanded - mu_
-                #TODO: mu_ -> [batch, node, hid]
-                kld = -0.5 / mu_.size(-2) * torch.mean(torch.sum(
+                kld = -0.5 / init_adj.size(-1) * torch.sum(torch.mean(torch.sum(
                     1 + 2 * logvar_ - mu_diff.pow(2) - logvar_.exp().pow(2), -1
-                ))
-                #TODO: KLD -> [batch, value]
+                ), -1))
             else:
-                kld = -0.5 / mu_.size(-2) * torch.mean(torch.sum(
-                    1 + 2 * logvar_ - mu_.pow(2) - logvar_.exp().pow(2), 1
-                ))
+                kld = -0.5 / init_adj.size(-1) * torch.sum(torch.mean(torch.sum(
+                    1 + 2 * logvar_ - mu_.pow(2) - logvar_.exp().pow(2), -1
+                ), -1))
         else:
             mu_ = torch.zeros((enc_hidden.size(0), self.config['latent_dim'])).to(self.device)
             kld = torch.zeros((1,)).to(self.device)
