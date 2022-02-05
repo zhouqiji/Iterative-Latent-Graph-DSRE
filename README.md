@@ -57,3 +57,4 @@ python calculate_priors.py --kg_embeds Freebase/ckpts_64/TransE_l2_Freebase_0/Fr
                            --data ../LANG/nyt10/nyt10_train.txt # [Or nyt10_570k Or wiki_distant]\
                            --kg [Freebase, Wikidata]
 ```
+#TODO: Clean unnecessary config and code------------------------
