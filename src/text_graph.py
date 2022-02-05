@@ -426,33 +426,24 @@ class TextGraph(nn.Module):
         if self.config['reconstruction']:
             # Get the reconstruction adj
             init_adj, mu_, logvar_ = self.gvae(context_vec, init_adj, node_mask)
+            node_num = init_adj.size(-1)
 
             if self.config['priors']:
                 prior_mus_expanded = torch.repeat_interleave(batch['prior_mus'], repeats=batch['bag_size'], dim=0)
-                mu_, logvar_ = mu_.mean(-2), logvar_.mean(-2)
+                mu_, logvar_ = mu_.sum(-2), logvar_.sum(-2)
 
                 mu_diff = prior_mus_expanded - mu_
-                kld = -0.5 / init_adj.size(-1) * torch.mean(torch.sum(
+                kld = (-0.5 * torch.mean(torch.sum(
                     1 + 2 * logvar_ - mu_diff.pow(2) - logvar_.exp().pow(2), -1
-                ))
+                ))) / node_num
             else:
-                mu_, logvar_ = mu_.mean(-2), logvar_.mean(-2)
-                kld = -0.5 / init_adj.size(-1) * torch.mean(torch.sum(
+                mu_, logvar_ = mu_.sum(-2), logvar_.sum(-2)
+                kld = (-0.5 * torch.mean(torch.sum(
                     1 + 2 * logvar_ - mu_.pow(2) - logvar_.exp().pow(2), -1
-                ))
+                ))) / node_num
         else:
             mu_ = torch.zeros((enc_hidden.size(0), self.config['latent_dim'])).to(self.device)
             kld = torch.zeros((1,)).to(self.device)
-        # raw_context_vec, context_mask, init_adj = self.prepare_init_graph(raw_context_vec,
-        #                                                                   context_vec_enc, context_len)
-        # # Init
-        # raw_node_vec = raw_context_vec  # word embedding
-        # init_node_vec = context_vec_enc  # hidden embedding
-        # node_mask = context_mask
-        # kld = torch.zeros((1,)).to(self.device)
-        # reco_loss = {'sum': torch.zeros((1,)).to(self.device),
-        #              'mean': torch.zeros((1,)).to(self.device)}
-        # mu_ = torch.zeros((hidden.size(0), self.config['latent_dim'])).to(self.device)
 
         cur_raw_adj, cur_adj = self.learn_graph(self.graph_learner, raw_node_vec, self.graph_skip_conn,
                                                 node_mask=node_mask, graph_include_self=self.graph_include_self,
@@ -474,7 +465,6 @@ class TextGraph(nn.Module):
             raise RuntimeError('Unknown graph_module: {}'.format(self.graph_module))
 
         # sentence representation
-        # sent_rep = torch.cat([graph_hid, arg1, arg2], dim=1)
         output = self.compute_output(output_node, bag_size)
 
         rec_features = (kld, mu_)
