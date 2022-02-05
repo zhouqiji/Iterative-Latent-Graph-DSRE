@@ -158,7 +158,7 @@ class Trainer(BaseTrainer):
 
             if self.config['reconstruction']:
                 loss = (self.config['task_weight'] * task_loss) + \
-                       (1 - self.config['task_weight']) * (rec_loss['sum'] + (kl_w[step] * kld) + graph_loss)
+                       (1 - self.config['task_weight']) * (rec_loss + (kl_w[step] * kld) + graph_loss)
             else:
                 loss = (self.config['task_weight'] * task_loss) + (1 - self.config['task_weight']) * graph_loss
 
@@ -210,7 +210,6 @@ class Trainer(BaseTrainer):
 
                 task_loss, graph_loss, rel_probs, kld, rec_loss, latent_z = self.model(batch)  # forward pass
 
-                # TODO: Test for loss setting
                 if self.config['reconstruction']:
                     loss = self.config['task_weight'] * task_loss + (1 - self.config['task_weight']) * (
                             rec_loss + kld + graph_loss)
