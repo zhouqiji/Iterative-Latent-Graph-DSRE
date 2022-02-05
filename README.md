@@ -53,7 +53,7 @@ Embeddings will be saved in the `Freebase/ckpts_64/` and `Wikidata/ckpts_64/` di
 Collect priors for your own KB:
 ```bash
 python calculate_priors.py --kg_embeds Freebase/ckpts_64/TransE_l2_Freebase_0/Freebase_TransE_l2_entity.npy \
-                           --e_map Freebase/entities.tsv \
-                           --data ../LANG/nyt10/nyt10_train.txt \
-                           --kg Freebase
+                           --e_map Freebase/entities.tsv \  # [Or Wikidata\...]
+                           --data ../LANG/nyt10/nyt10_train.txt # [Or nyt10_570k Or wiki_distant]\
+                           --kg [Freebase, Wikidata]
 ```
