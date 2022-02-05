@@ -25,6 +25,7 @@ max_sent_len: 50
 pretrained_embeds_file: ../embeds/glove.6B.50d.txt  # vec.txt (Lin et al., 2016)
 freeze_words: False
 enc_dim: 128
+dec_dim: 0
 enc_layers: 1
 dec_layers: 1
 enc_bidirectional: True
