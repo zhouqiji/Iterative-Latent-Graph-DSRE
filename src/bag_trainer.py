@@ -159,9 +159,9 @@ class Trainer(BaseTrainer):
             if self.config['reconstruction']:
                 # loss = (self.config['task_weight'] * task_loss) + \
                 #        (1 - self.config['task_weight']) * (rec_loss['sum'] + (kl_w[step] * kld) + graph_loss)
-                # TODO: Test without kl_w and graph_loss + task_loss
+                # TODO: Test  graph_loss + task_loss
                 loss = self.config['task_weight'] * (task_loss + graph_loss) + (1 - self.config['task_weight']) * (
-                        rec_loss + kld)
+                        rec_loss + kl_w[step] * kld)
             else:
                 # loss = (self.config['task_weight'] * task_loss) + (1 - self.config['task_weight']) * graph_loss
                 loss = task_loss + graph_loss
@@ -217,7 +217,7 @@ class Trainer(BaseTrainer):
                 # TODO: Test for loss setting
                 if self.config['reconstruction']:
                     loss = self.config['task_weight'] * (task_loss + graph_loss) + (1 - self.config['task_weight']) * (
-                                rec_loss + kld)
+                            rec_loss + kld)
                 else:
                     loss = task_loss + graph_loss
 

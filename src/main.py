@@ -153,20 +153,6 @@ def main(args):
             print('AUC: {:.4f}\np@100: {:.4f}, p@200: {:.4f}, p@300: {:.4f}, p@500: {:.4f}\n'.format(
                 perf['pr_auc'], perf['p@100'], perf['p@200'], perf['p@300'], perf['p@500']))
 
-    elif config['mode'] == 'infer':
-        trainer = load_saved_model(config, prior_mus, device)
-        trainer.collect_codes('train')
-        trainer.collect_codes('val')
-        # trainer.collect_codes('test')
-        # exit(0)
-        trainer.model.generation(20)  # generate sentences
-        for batch_idx, batch in enumerate(trainer.iterators['val']):
-            for keys in batch.keys():
-                if keys != 'bag_names':
-                    batch[keys] = batch[keys].to(device)
-            with torch.no_grad():
-                trainer.model.sample_posterior(batch)  # generate sentence by sampling the posterior
-
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
