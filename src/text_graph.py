@@ -406,7 +406,7 @@ class TextGraph(nn.Module):
         mean_adj_sum = cur_adj.sum(-1).sum(-1).mean()
         pos_weight = (cur_adj.size(-1) * cur_adj.size(-1) - mean_adj_sum) / mean_adj_sum
         norm = (cur_adj.size(-1) * cur_adj.size(-1)) / (cur_adj.size(-1) * cur_adj.size(-1) - 2 * mean_adj_sum)
-        cost = norm * F.binary_cross_entropy_with_logits(init_adj, cur_adj, pos_weight=pos_weight.item())
+        cost = norm * F.binary_cross_entropy_with_logits(init_adj, cur_adj, pos_weight=pos_weight.detach())
         return cost
 
     def forward(self, raw_context_vec, batch):
