@@ -43,7 +43,7 @@ class GraphNet(BaseNet):
         ##########################
         # Graph Encoder
         ##########################
-        graph_out, graph_features, reco_features = self.graph_encoder(x_vec, batch, self.w_embed)
+        graph_out, graph_features, reco_features = self.graph_encoder(x_vec, batch)
 
         kld, mu_ = reco_features
 
