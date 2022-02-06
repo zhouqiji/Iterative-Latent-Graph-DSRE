@@ -106,7 +106,7 @@ class TextGraph(nn.Module):
                                                  num_pers=config['graph_learn_num_pers'],
                                                  metric_type=config['graph_metric_type'],
                                                  device=self.device)
-            self.graph_learner2 = graph_learn_fun(self.graph_hid_dim,
+            self.graph_learner2 = graph_learn_fun(self.graph_out_dim,
                                                   config['graph_learn_hidden_size2'],
                                                   topk=config['graph_learn_topk2'],
                                                   epsilon=config['graph_learn_epsilon2'],
