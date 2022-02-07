@@ -51,7 +51,7 @@ class TextGraph(nn.Module):
         else:
             self.in_dim = config['word_embed_dim']
         # Text Sentence Embedding
-        self.ctx_encoder = LSTMEncoder(in_features=input_dim,
+        self.ctx_encoder = LSTMEncoder(in_features=self.in_dim,
                                        h_enc_dim=config['enc_dim'],
                                        layers_num=config['enc_layers'],
                                        dir2=config['enc_bidirectional'],
