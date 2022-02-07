@@ -46,7 +46,7 @@ task_weight: 0.6
 # FLAGS
 early_stop: True
 reconstruction: True
-include_positions: True
+include_positions: False
 priors: False
 freeze_pretrained: False
 
