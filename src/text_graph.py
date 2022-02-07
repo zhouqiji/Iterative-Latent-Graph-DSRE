@@ -430,14 +430,16 @@ class TextGraph(nn.Module):
 
             if self.config['priors']:
                 prior_mus_expanded = torch.repeat_interleave(batch['prior_mus'], repeats=batch['bag_size'], dim=0)
-                mu_, logvar_ = mu_.sum(-2), logvar_.sum(-2)
+                # mu_, logvar_ = mu_.sum(-2), logvar_.sum(-2)
+                mu_, logvar_ = self.graph_maxpool(mu_.transpose(-1, -2)),self.graph_maxpool(logvar_.transpose(-1, -2))
 
                 mu_diff = prior_mus_expanded - mu_
                 kld = (-0.5 * torch.mean(torch.sum(
                     1 + 2 * logvar_ - mu_diff.pow(2) - logvar_.exp().pow(2), -1
                 ))) / node_num
             else:
-                mu_, logvar_ = mu_.sum(-2), logvar_.sum(-2)
+                # mu_, logvar_ = mu_.sum(-2), logvar_.sum(-2)
+                mu_, logvar_ = self.graph_maxpool(mu_.transpose(-1, -2)),self.graph_maxpool(logvar_.transpose(-1, -2))
                 kld = (-0.5 * torch.mean(torch.sum(
                     1 + 2 * logvar_ - mu_.pow(2) - logvar_.exp().pow(2), -1
                 ))) / node_num
