@@ -33,7 +33,6 @@ class TextGraph(nn.Module):
         self.graph_include_self = config['graph_include_self']
         self.graph_batch_norm = config['graph_batch_norm']
 
-        self.in_dim = config['word_embed_dim'] + 2 * config['pos_embed_dim']
         self.enc_dim = config['enc_dim']
         self.graph_hid_dim = config['graph_hid_dim']
         self.graph_out_dim = config['graph_out_dim']
@@ -48,9 +47,9 @@ class TextGraph(nn.Module):
         self.lat_dim = config['latent_dim']
         self.dec_dim = config['dec_dim']
         if config['include_positions']:
-            input_dim = config['word_embed_dim'] + 2 * config['pos_embed_dim']
+            self.in_dim = config['word_embed_dim'] + 2 * config['pos_embed_dim']
         else:
-            input_dim = config['word_embed_dim']
+            self.in_dim = config['word_embed_dim']
         # Text Sentence Embedding
         self.ctx_encoder = LSTMEncoder(in_features=input_dim,
                                        h_enc_dim=config['enc_dim'],
