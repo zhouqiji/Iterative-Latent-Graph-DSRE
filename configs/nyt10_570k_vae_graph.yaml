@@ -19,7 +19,7 @@ epochs: 100
 bag_size: 500
 word_embed_dim: 50
 rel_embed_dim: 64
-pos_embed_dim: 8
+pos_embed_dim: 32
 latent_dim: 64
 max_sent_len: 50
 pretrained_embeds_file: ../embeds/glove.6B.50d.txt  # vec.txt (Lin et al., 2016)
@@ -33,7 +33,7 @@ dec_bidirectional: False
 input_dropout: 0.3
 output_dropout: 0.3
 teacher_force: 0.0
-lr: 0.0005
+lr: 0.001
 weight_decay: 0.000001
 clip: 10
 max_vocab_size: 40000
@@ -46,7 +46,7 @@ task_weight: 0.6
 # FLAGS
 early_stop: True
 reconstruction: True
-include_positions: False
+include_positions: True
 priors: False
 freeze_pretrained: False
 
