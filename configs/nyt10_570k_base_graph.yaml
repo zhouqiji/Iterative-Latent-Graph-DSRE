@@ -19,7 +19,7 @@ epochs: 100
 bag_size: 500
 word_embed_dim: 50
 rel_embed_dim: 64
-pos_embed_dim: 32
+pos_embed_dim: 8
 latent_dim: 0
 max_sent_len: 50
 pretrained_embeds_file: ../embeds/glove.6B.50d.txt  # vec.txt (Lin et al., 2016)

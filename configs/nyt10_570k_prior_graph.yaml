@@ -19,7 +19,7 @@ epochs: 100
 bag_size: 500
 word_embed_dim: 50
 rel_embed_dim: 64
-pos_embed_dim: 32
+pos_embed_dim: 8
 latent_dim: 64
 max_sent_len: 50
 pretrained_embeds_file: ../embeds/glove.6B.50d.txt  # vec.txt (Lin et al., 2016)
@@ -76,7 +76,7 @@ graph_learn_hidden_size2: 70 # kernel: 90, attention: 70
 graph_learn_epsilon2: 0 # weighted_cosine: 0
 graph_learn_topk2: null # attn-GCN: 140: 64.1, kernel-GCN: 100
 graph_hops: 2
-graph_hid_dim: 128
+graph_hid_dim: 256
 graph_out_dim: 128  # Tuning!
 graph_learn_max_iter: 4
 eps_adj: 8e-3
