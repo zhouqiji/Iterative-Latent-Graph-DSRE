@@ -18,7 +18,7 @@ batch_size: 32
 epochs: 100
 bag_size: 500
 word_embed_dim: 50
-rel_embed_dim: 64
+rel_embed_dim: 128
 pos_embed_dim: 8
 latent_dim: 0
 max_sent_len: 30
@@ -36,7 +36,7 @@ teacher_force: 0.0
 lr: 0.0005
 weight_decay: 0.000001
 clip: 10
-max_vocab_size: 40000
+max_vocab_size: 50000
 cutoff_freq:
 lowercase: True
 primary_metric: pr_auc
@@ -48,6 +48,7 @@ early_stop: True
 reconstruction: False
 include_positions: True
 priors: False
+use_pretrain: False
 freeze_pretrained: False
 
 
