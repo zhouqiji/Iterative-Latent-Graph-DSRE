@@ -14,7 +14,7 @@ exp_name: 'wiki_distant'
 model_name: 'wiki_distant'
 
 # Hyper-parameters
-batch_size: 32
+batch_size: 64
 epochs: 100
 bag_size: 500
 word_embed_dim: 50
