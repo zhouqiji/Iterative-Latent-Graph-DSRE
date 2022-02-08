@@ -48,7 +48,7 @@ if __name__ == "__main__":
     parser.add_argument('--kg_embeds', type=str)
     parser.add_argument('--e_map', type=str)
     parser.add_argument('--data', type=str, nargs='*')
-    parser.add_argument('--kg', type=str, choices=['Freebase', 'Wikidata', 'Freebase_570k'])
+    parser.add_argument('--kg', type=str, choices=['Freebase', 'Wikidata'])
     args = parser.parse_args()
 
     if not os.path.exists(args.kg):

@@ -57,4 +57,6 @@ python calculate_priors.py --kg_embeds Freebase/ckpts_64/TransE_l2_Freebase_0/Fr
                            --data ../LANG/nyt10/nyt10_train.txt # [Or nyt10_570k Or wiki_distant]\
                            --kg [Freebase, Wikidata]
 ```
+These can be **directly downloaded** [here](https://drive.google.com/file/d/1rqXQ3uqI0n98S5j7gPYaXgf1hQELIi_E/view?usp=sharing).
+(Thans for Fenia Christopoulou‘s open source)
 #TODO: Clean unnecessary config and code------------------------
