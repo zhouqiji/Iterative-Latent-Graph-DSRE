@@ -25,7 +25,7 @@ max_sent_len: 30
 pretrained_embeds_file: ../embeds/glove.6B.50d.txt  # vec.txt (Lin et al., 2016)
 freeze_words: False
 enc_dim: 256
-dec_dim: 0
+dec_dim: 128 # TODO: unnecessary
 enc_layers: 1
 dec_layers: 1
 enc_bidirectional: True
@@ -45,7 +45,7 @@ task_weight: 0.6
 
 # FLAGS
 early_stop: True
-reconstruction: False
+reconstruction: True
 include_positions: True
 priors: False
 freeze_pretrained: False
