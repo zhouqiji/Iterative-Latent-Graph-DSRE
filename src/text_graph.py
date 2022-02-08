@@ -126,7 +126,7 @@ class TextGraph(nn.Module):
             raw_adj = graph_learner(node_features, node_mask)
 
             if self.graph_metric_type in ('kernel', 'weighted_cosine'):
-                assert raw_adj.min().item() >= 0
+                assert raw_adj.min().item() >= 0.0
                 adj = raw_adj / torch.clamp(torch.sum(raw_adj, dim=-1, keepdim=True), min=VERY_SMALL_NUMBER)
 
             else:
