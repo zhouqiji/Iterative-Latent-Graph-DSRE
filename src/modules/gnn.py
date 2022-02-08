@@ -87,7 +87,6 @@ class GCNLayer(nn.Module):
             self.register_parameter('bias', None)
 
         self.bn = nn.BatchNorm1d(out_features) if batch_norm else None
-        self.layer_norm = nn.LayerNorm(out_features)
 
     def forward(self, input, adj, batch_norm=True):
         support = torch.matmul(input, self.weight)
@@ -98,7 +97,6 @@ class GCNLayer(nn.Module):
 
         if self.bn is not None and batch_norm:
             output = self.compute_bn(output)
-        output = self.layer_norm(output)
         return torch.relu(output)
 
     def compute_bn(self, x):
