@@ -405,7 +405,7 @@ class TextGraph(nn.Module):
         else:
             reco_loss = torch.zeros((1,)).to(self.device)
 
-        return loss, reco_loss, rel_probs
+        return loss, graph_loss, reco_loss, rel_probs
 
     def comput_reco_loss(self, init_adj, cur_adj):
         mean_adj_sum = cur_adj.sum(-1).sum(-1).mean()
