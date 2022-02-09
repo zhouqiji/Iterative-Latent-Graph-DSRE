@@ -77,7 +77,6 @@ class GraphLearner(nn.Module):
             markoff_value = -INF
 
         elif self.metric_type == 'weighted_cosine':
-            # TODO: Eq.1
             expand_weight_tensor = self.weight_tensor.unsqueeze(1)
             if len(context.shape) == 3:
                 expand_weight_tensor = expand_weight_tensor.unsqueeze(1)
