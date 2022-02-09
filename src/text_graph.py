@@ -121,8 +121,8 @@ class TextGraph(nn.Module):
             self.lambda_init = self.config['lambda_init']
             self.lambda0 = torch.tensor(float(self.lambda_init), device=self.device)
             self.c0_ma = torch.tensor(0., device=self.device)
-            # self.register_buffer('lambda0', torch.full((1,), self.lambda_init))
-            # self.register_buffer('c0_ma', torch.full((1,), 0.))  # moving average
+            # self.register_buffer('lambda0', torch.tensor(float(self.lambda_init),device=self.device))
+            # self.register_buffer('c0_ma', torch.tensor(0., device=self.device))  # moving average
 
     def compute_no_gnn_output(self, context, context_lens):
         context_vec = self.ctx_encoder(context, len_=context_lens)
@@ -262,7 +262,6 @@ class TextGraph(nn.Module):
             l0 = out_adj.sum(2) / (sent_length.unsqueeze(1) + 1e-9)
             l0 = l0.sum(1) / (sent_length + 1e-9)
             l0 = l0.sum() / sent_length.size(0)
-            print('l0--->', l0.item())
             # `l0` now has the expected selection rate for this mini-batch
             # we now follow the steps Algorithm 1 (page 7) of this paper:
             # https://arxiv.org/abs/1810.00597
