@@ -43,7 +43,7 @@ class GraphNet(BaseNet):
         ##########################
         # Graph Encoder
         ##########################
-        graph_out, graph_features, reco_features, c_loss = self.graph_encoder(x_vec, batch)
+        graph_out, graph_features, reco_features= self.graph_encoder(x_vec, batch)
 
         kld, mu_ = reco_features
 
@@ -61,4 +61,4 @@ class GraphNet(BaseNet):
             rel_probs = task_rel_probs
 
         assert torch.sum(torch.isnan(rel_probs)) == 0.0
-        return task_loss + total_loss + c_loss, graph_loss, rel_probs, kld, reco_loss, mu_
+        return task_loss + total_loss, graph_loss, rel_probs, kld, reco_loss, mu_

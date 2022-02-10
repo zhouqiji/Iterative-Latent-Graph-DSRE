@@ -115,14 +115,6 @@ class TextGraph(nn.Module):
             self.graph_learner = None
             self.graph_learner2 = None
 
-        if self.config['constrain_loss']:
-            self.lagrange_lr = self.config['lagrange_lr']
-            self.lagrange_alpha = self.config['lagrange_alpha']
-            self.lambda_init = self.config['lambda_init']
-
-            self.lambda0 = torch.tensor(float(self.lambda_init), device=self.device)
-            self.c0_ma = torch.tensor(0., device=self.device)
-
     def compute_no_gnn_output(self, context, context_lens):
         context_vec = self.ctx_encoder(context, len_=context_lens)
         return context_vec
@@ -405,6 +397,8 @@ class TextGraph(nn.Module):
         if self.config['reconstruction']:
             # Get the reconstruction adj
             init_adj, mu_, logvar_ = self.gvae(context_vec, init_adj, node_mask)
+            init_adj = batch_normalize_adj(init_adj, node_mask)
+
             node_num = init_adj.size(-1)
 
             if self.config['priors']:
@@ -451,32 +445,4 @@ class TextGraph(nn.Module):
         graph_features = (init_adj, cur_raw_adj, cur_adj, raw_node_vec, init_node_vec, output_node,
                           node_mask, batch['sent_len'])
 
-        if self.config['constrain_loss']:
-            sent_len = batch['sent_len']
-            l0 = cur_adj.sum(2) / (sent_len.unsqueeze(1) + 1e-9)
-            l0 = l0.sum(1) / (sent_len + 1e-9)
-            l0 = l0.sum() / sent_len.size(0)
-            # `l0` now has the expected selection rate for this mini-batch
-            # we now follow the steps Algorithm 1 (page 7) of this paper:
-            # https://arxiv.org/abs/1810.00597
-            # to enforce the constraint that we want l0 to be not higher
-            # than `self.selection` (the target sparsity rate)
-
-            # lagrange dissatisfaction, batch average of the constraint
-            c0_hat = (l0 - self.config['constrain_rate'])
-
-            # moving average of the constraint
-            self.c0_ma = self.lagrange_alpha * self.c0_ma + \
-                         (1 - self.lagrange_alpha) * c0_hat.item()
-
-            # compute smoothed constraint (equals moving average c0_ma)
-            c0 = c0_hat + (self.c0_ma.detach() - c0_hat.detach())
-
-            # update lambda
-            self.lambda0 = self.lambda0 * torch.exp(
-                self.lagrange_lr * c0.detach())
-            c_loss = self.lambda0.detach() * c0
-        else:
-            c_loss = 0.
-
-        return output, graph_features, rec_features, c_loss
+        return output, graph_features, rec_features
