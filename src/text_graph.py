@@ -397,8 +397,6 @@ class TextGraph(nn.Module):
         if self.config['reconstruction']:
             # Get the reconstruction adj
             init_adj, mu_, logvar_ = self.gvae(context_vec, init_adj, node_mask)
-            init_adj = batch_normalize_adj(init_adj, node_mask)
-
             node_num = init_adj.size(-1)
 
             if self.config['priors']:
