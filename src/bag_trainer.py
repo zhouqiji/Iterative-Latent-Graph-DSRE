@@ -158,9 +158,10 @@ class Trainer(BaseTrainer):
 
             if self.config['reconstruction']:
                 loss = (self.config['task_weight'] * task_loss) + \
-                       (1 - self.config['task_weight']) * (rec_loss + (kl_w[step] * kld) + graph_loss)
+                       (1 - self.config['task_weight']) * (rec_loss + (kl_w[step] * kld))
             else:
-                loss = (self.config['task_weight'] * task_loss) + (1 - self.config['task_weight']) * graph_loss
+                # loss = (self.config['task_weight'] * task_loss) + (1 - self.config['task_weight']) * graph_loss
+                loss = task_loss
 
             loss.backward()
 
@@ -213,9 +214,10 @@ class Trainer(BaseTrainer):
                 # TODO: total loss contains graph loss
                 if self.config['reconstruction']:
                     loss = self.config['task_weight'] * task_loss + (1 - self.config['task_weight']) * (
-                            rec_loss + kld + graph_loss)
+                            rec_loss + kld)
                 else:
-                    loss = (self.config['task_weight'] * task_loss) + (1 - self.config['task_weight']) * graph_loss
+                    # loss = (self.config['task_weight'] * task_loss) + (1 - self.config['task_weight']) * graph_loss
+                    loss = task_loss
 
                 tracker['probabilities'] += [rel_probs.cpu().data.numpy()]
                 tracker['gtruth'] += [batch['rel'].cpu().data.numpy()]

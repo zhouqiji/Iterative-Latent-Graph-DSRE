@@ -273,7 +273,7 @@ class TextGraph(nn.Module):
 
             # moving average of the constraint
             self.c0_ma = self.lagrange_alpha * self.c0_ma + \
-                    (1 - self.lagrange_alpha) * c0_hat.item()
+                         (1 - self.lagrange_alpha) * c0_hat.item()
 
             # compute smoothed constraint (equals moving average c0_ma)
             c0 = c0_hat + (self.c0_ma.detach() - c0_hat.detach())
@@ -380,7 +380,6 @@ class TextGraph(nn.Module):
             tmp_stop_criteria = self.batch_diff(cur_raw_adj, pre_raw_adj, first_raw_adj) > eps_adj
             batch_stop_indicators = batch_stop_indicators * tmp_stop_criteria
 
-
         if iter_ > 0:
             loss = torch.mean(loss / batch_last_iters.float()) + graph_loss
 
@@ -405,7 +404,7 @@ class TextGraph(nn.Module):
         else:
             reco_loss = torch.zeros((1,)).to(self.device)
 
-        return graph_loss, reco_loss, rel_probs
+        return loss, graph_loss, reco_loss, rel_probs
 
     def comput_reco_loss(self, init_adj, cur_adj):
         mean_adj_sum = cur_adj.sum(-1).sum(-1).mean()
