@@ -409,7 +409,7 @@ class TextGraph(nn.Module):
                 )))
             else:
 
-                # mu_, logvar_ = mu_.sum(-2), logvar_.sum(-2)
+                mu_, logvar_ = mu_.sum(-2), logvar_.sum(-2)
                 kld = (-0.5 * torch.mean(torch.sum(
                     1 + 2 * logvar_ - mu_.pow(2) - logvar_.exp().pow(2), -1
                 )))
