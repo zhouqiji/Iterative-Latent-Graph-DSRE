@@ -1,12 +1,5 @@
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
-from torch.nn.utils.rnn import pad_sequence
 from init_net import BaseNet
-import numpy as np
-from modules.constants import *
-
-from text_graph import TextGraph
 
 
 class GraphNet(BaseNet):
@@ -31,7 +24,12 @@ class GraphNet(BaseNet):
         ######################
         # Encoder
         ######################
-        x_vec = self.w_embed(batch['source'])
+        if self.config['using_bert']:
+            x_vec = self.bert_embed(batch['source'], attention_mask=batch['bert_attn_mask'],
+                                    token_type_ids=batch['bert_token_ids'])
+            x_vec = x_vec[1]
+        else:
+            x_vec = self.w_embed(batch['source'])
 
         if self.config['include_positions']:
             pos1 = self.p_embed(batch['pos1'])
@@ -43,17 +41,17 @@ class GraphNet(BaseNet):
         ##########################
         # Graph Encoder
         ##########################
-        graph_out, graph_features, reco_features= self.graph_encoder(x_vec, batch)
+        graph_out, graph_features, reco_features = self.graph_encoder(x_vec, batch)
 
         kld, mu_ = reco_features
 
         task_rel_probs, task_loss = self.calc_task_loss(graph_out, batch['rel'])
         total_loss, graph_loss, reco_loss, tmp_rel_probs, cur_adj = self.graph_encoder.learn_iter_graphs(
-                                                                                            graph_features,
-                                                                                            batch['source'].size(0),
-                                                                                            batch['bag_size'],
-                                                                                            batch['rel'],
-                                                                                            self.calc_task_loss)
+            graph_features,
+            batch['source'].size(0),
+            batch['bag_size'],
+            batch['rel'],
+            self.calc_task_loss)
 
         if tmp_rel_probs is not None:
             rel_probs = tmp_rel_probs

@@ -46,10 +46,14 @@ class TextGraph(nn.Module):
         # G-VAE
         self.lat_dim = config['latent_dim']
         self.dec_dim = config['dec_dim']
-        if config['include_positions']:
-            self.in_dim = config['word_embed_dim'] + 2 * config['pos_embed_dim']
+        if config['using_bert']:
+            self.in_dim = config['bert_dim']
         else:
             self.in_dim = config['word_embed_dim']
+        if config['include_positions']:
+            self.in_dim += 2 * config['pos_embed_dim']
+        else:
+            self.in_dim = self.in_dim
         # Text Sentence Embedding
         self.ctx_encoder = LSTMEncoder(in_features=self.in_dim,
                                        h_enc_dim=config['enc_dim'],

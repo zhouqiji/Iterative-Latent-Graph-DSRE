@@ -27,26 +27,29 @@ def load_priors(file):
 
 
 def load_data(word_vocab, prior_mus, config, pos_vocab=None, mode='train'):
-    train_data_ = BagREDataset(config['train_data'],
+    train_data_ = BagREDataset(config,
+                               config['train_data'],
                                config['relations_file'],
                                word_vocab,
                                prior_mus,
                                pos_vocab=pos_vocab,
                                max_sent_length=config['max_sent_len'],
                                max_vocab=config['max_vocab_size'],
-                               max_bag_size=config['bag_size'], mode=mode)
+                               max_bag_size=config['bag_size'], bert_name=config['bert_path'], mode=mode)
     print(len(train_data_))
     train_loader_ = DataLoader(dataset=train_data_,
                                batch_size=config['batch_size'],
                                shuffle=True,
                                collate_fn=BagCollates(),
                                num_workers=0)
-    val_data_ = BagREDataset(config['val_data'],
+    val_data_ = BagREDataset(config,
+                             config['val_data'],
                              config['relations_file'],
                              train_data_.word_vocab if mode == 'train' else word_vocab,
                              prior_mus,
                              pos_vocab=train_data_.pos_vocab if mode == 'train' else pos_vocab,
-                             max_sent_length=train_data_.max_sent_length, max_bag_size=0, mode='val')
+                             max_sent_length=train_data_.max_sent_length, max_bag_size=0, bert_name=config['bert_path'],
+                             mode='val')
     print(len(val_data_))
     val_loader_ = DataLoader(dataset=val_data_,
                              batch_size=config['batch_size'],
@@ -54,12 +57,14 @@ def load_data(word_vocab, prior_mus, config, pos_vocab=None, mode='train'):
                              collate_fn=BagCollates(),
                              num_workers=0)
 
-    test_data_ = BagREDataset(config['test_data'],
+    test_data_ = BagREDataset(config,
+                              config['test_data'],
                               config['relations_file'],
                               train_data_.word_vocab if mode == 'train' else word_vocab,
                               prior_mus,
                               pos_vocab=train_data_.pos_vocab if mode == 'train' else pos_vocab,
-                              max_sent_length=train_data_.max_sent_length, max_bag_size=0, mode='test')
+                              max_sent_length=train_data_.max_sent_length, max_bag_size=0,
+                              bert_name=config['bert_path'], mode='test')
     print(len(test_data_))
     test_loader_ = DataLoader(dataset=test_data_,
                               batch_size=config['batch_size'],
@@ -118,7 +123,7 @@ def main(args):
     print()
 
     #  Pre-trained embeddings
-    if config['pretrained_embeds_file']:
+    if config['pretrained_embeds_file'] and not config['using_bert']:
         print("Loading pretrained word embeddings ... ", end='')
         word_vocab = Words()
         word_vocab.pretrained = load_pretrained_embeds(config['pretrained_embeds_file'], config['word_embed_dim'])
