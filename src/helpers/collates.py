@@ -53,19 +53,16 @@ class BagCollates(BaseCollate):
         bag_sizes = torch.from_numpy(np.array(bag_sizes)).long()
 
         bs = sum(data[4], [])
-        bs_target = sum(data[5], [])
         p1 = sum(data[6], [])
         p2 = sum(data[7], [])
         slen = sum(data[8], [])
         mentions = sum(data[9], [])
-        bert_attn_mask = data[-2]
-        bert_token_ids = data[-1]
+        bert_attn_mask = sum(data[-2], [])
+        bert_token_ids = sum(data[-1], [])
         # pad when no bert tokenization
+        bert_attn_mask, bert_token_ids = self.pad_samples(bert_attn_mask), self.pad_samples(bert_token_ids)
 
-        if len(bert_attn_mask) == 0:
-            batch_seqs = self.pad_samples(bs)
-        else:
-            batch_seqs = bs
+        batch_seqs = self.pad_samples(bs)
         pos1 = self.pad_samples(p1)
         pos2 = self.pad_samples(p2)
         slen = torch.from_numpy(np.stack(slen)).long()

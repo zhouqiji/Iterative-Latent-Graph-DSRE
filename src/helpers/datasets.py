@@ -40,7 +40,6 @@ class BagREDataset(Dataset):
             self.priors_dim = len(self.priors[list(priors.keys())[-1]])
 
         # Berttokenizer
-        # TODO: user local for test
         self.config = config
         if self.config['using_bert']:
             self.tokenizer = load_tokenizer(bert_name)
@@ -228,53 +227,29 @@ class BagREDataset(Dataset):
                     e21_p += 1
                     e22_p += 1
 
-                    if len(tokens_a) > self.max_sent_length - 1:
-                        tokens_a = tokens_a[: (self.max_sent_length - 1)]
-
                     tokens = tokens_a
-
+                    if self.mode == 'train' or self.mode == 'train-test':
+                        tokens = tokens[:self.max_sent_length]  # restrict to max_sent_length add 'cls'
                     token_type_ids = [0] * len(tokens)
-
                     tokens = ["CLS"] + tokens
                     token_type_ids = [0] + token_type_ids
 
                     input_ids = self.tokenizer.convert_tokens_to_ids(tokens)
-
                     # The mask has 1 for real tokens and 0 for padding tokens. Only real tokens are attended to.
                     attention_mask = [1] * len(input_ids)
-
-                    # zero-pad up to the sequence length.
-                    padding_length = self.max_sent_length - len(input_ids)
-                    input_ids = input_ids + ([0] * padding_length)
-                    attention_mask = attention_mask + ([0] * padding_length)
-                    token_type_ids = token_type_ids + ([0] * padding_length)
-
-                    assert len(input_ids) == self.max_sent_length, "Error with input length {} vs {}".format(
-                        len(input_ids),
-                        self.max_sent_length)
-                    assert len(
-                        attention_mask) == self.max_sent_length, "Error with attention mask length {} vs {}".format(
-                        len(attention_mask), self.max_sent_length
-                    )
-                    assert len(token_type_ids) == self.max_sent_length, "Error with token type length {} vs {}".format(
-                        len(token_type_ids), self.max_sent_length
-                    )
-
                     tmp_source = input_ids
-                    attn_mask += attention_mask
-                    token_ids += token_type_ids
-
                 else:
                     tmp = self.word_vocab.get_ids(sentence, replace=False)
                     if self.mode == 'train' or self.mode == 'train-test':
                         tmp = tmp[:self.max_sent_length]  # restrict to max_sent_length
-
                     tmp_source = [self.word_vocab.word2id[self.word_vocab.SOS]] + tmp  # add <SOS>
-                # tmp_target = tmp + [self.word_vocab.word2id[self.word_vocab.EOS]]  # add <EOS>
+                    attention_mask = [0] * len(tmp_source)
+                    token_type_ids = [0] * len(tmp_source)
 
                 bag_seqs += [torch.tensor(tmp_source).long()]
-                # bag_seqs_target += [torch.tensor(tmp_target).long()]
 
+                attn_mask += [attention_mask]
+                token_ids += [token_type_ids]
                 sent_len += [len(tmp_source)]
 
                 bag_mentions += [[mentions['m1'][0] + 1, mentions['m1'][-1] + 1,
@@ -297,7 +272,9 @@ class BagREDataset(Dataset):
                 if pair_name in self.priors:
                     priors = np.asarray(self.priors[pair_name])
                     self.data.append([labels, pair_name + ' ### ' + bag_label[0], len(bag_sents), bag_ent_offsets,
-                                      bag_seqs, bag_seqs_target, pos1, pos2, sent_len, bag_mentions, priors])
+                                      bag_seqs, bag_seqs_target, pos1, pos2, sent_len, bag_mentions, priors,
+                                      self.config['using_bert'], attn_mask,
+                                      token_ids])
                 else:
                     priors = np.zeros((self.priors_dim,))
                     # if self.mode == 'train' or self.mode == 'train-test':
@@ -305,13 +282,15 @@ class BagREDataset(Dataset):
                     #     continue
                     # else:
                     self.data.append([labels, pair_name + ' ### ' + bag_label[0], len(bag_sents), bag_ent_offsets,
-                                      bag_seqs, bag_seqs_target, pos1, pos2, sent_len, bag_mentions, priors])
+                                      bag_seqs, bag_seqs_target, pos1, pos2, sent_len, bag_mentions, priors,
+                                      attn_mask,
+                                      token_ids])
             else:
                 priors = None
                 self.data.append([labels, pair_name + ' ### ' + bag_label[0], len(bag_sents), bag_ent_offsets,
-                                  bag_seqs, bag_seqs_target, pos1, pos2, sent_len, bag_mentions, priors])
-
-            self.data.append([attn_mask, token_ids])
+                                  bag_seqs, bag_seqs_target, pos1, pos2, sent_len, bag_mentions, priors,
+                                  attn_mask,
+                                  token_ids])
 
         print('Skipped: {}'.format(skipped))
 
