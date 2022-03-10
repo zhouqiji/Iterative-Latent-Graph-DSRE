@@ -28,8 +28,11 @@ class BaseNet(nn.Module):
             self.bert_embed = BertModel(bert_config)
             # Freezing
             for name, value in self.bert_embed.named_parameters():
-                if not name.startswith("word_embeddings"):
+                if not name.startswith("encoding.lay"):
                     value.requires_grad = False
+                elif name.startswith("encoding.lay") and ("11" not  in name):
+                    value.requires_grad = False
+
 
 
         else:
