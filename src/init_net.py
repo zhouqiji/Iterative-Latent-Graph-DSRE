@@ -26,6 +26,9 @@ class BaseNet(nn.Module):
         if self.config['using_bert']:
             bert_config = BertConfig.from_pretrained(config['bert_path'])
             self.bert_embed = BertModel(bert_config)
+            # Freezing
+            # for p_name, p_value in self.bert_embed.named_parameters():
+            #     p_value.requires_grad = False
         else:
             self.w_embed = EmbedLayer(num_embeddings=vocabs['w_vocab'].n_word,
                                       embedding_dim=config['word_embed_dim'],
