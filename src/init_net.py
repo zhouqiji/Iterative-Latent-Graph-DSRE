@@ -28,7 +28,7 @@ class BaseNet(nn.Module):
             self.bert_embed = BertModel(bert_config)
             # Freezing
             for p_name, p_value in self.bert_embed.named_parameters():
-                if p_name.startswith("encoder.layer") and ("10" not in p_name) and ("11" not in p_name):
+                if p_name.startswith("encoder.layer"):
                     p_value.requires_grad = False
         else:
             self.w_embed = EmbedLayer(num_embeddings=vocabs['w_vocab'].n_word,
