@@ -14,7 +14,7 @@ exp_name: 'nyt10_570k'
 model_name: 'nyt10_570k'
 
 # Hyper-parameters
-batch_size: 8
+batch_size: 16
 epochs: 100
 bag_size: 500
 word_embed_dim: 50
