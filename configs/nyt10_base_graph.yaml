@@ -26,7 +26,7 @@ bert_path: bert-base-uncased        # or local models
 rel_embed_dim: 64
 pos_embed_dim: 8
 latent_dim: 0
-max_sent_len: 50
+max_sent_len: 70
 pretrained_embeds_file: ../embeds/glove.6B.50d.txt  # vec.txt (Lin et al., 2016)
 freeze_words: False
 enc_dim: 128
