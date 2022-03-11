@@ -4,7 +4,6 @@ import torch.nn.functional as F
 from modules.embed import *
 from modules.encoders_decoders import *
 from modules.attention import *
-from transformers import BertModel, BertPreTrainedModel, BertConfig
 from text_graph import TextGraph
 
 
@@ -23,25 +22,12 @@ class BaseNet(nn.Module):
         self.device = device
         self.config = config
 
-        if self.config['using_bert']:
-            bert_config = BertConfig.from_pretrained(config['bert_path'])
-            bert_config.max_position_embeddings = 1024
-            self.bert_embed = BertModel(bert_config)
-            # Freezing
-            # for v in self.bert_embed.parameters():
-            #     v.requires_grad = False
-            for p_name, p_value in self.bert_embed.named_parameters():
-                if not p_name.startswith("encoder.layer"):
-                    p_value.requires_grad = False
-                elif p_name.startswith("encoder.layer") and ("11" not in p_name):
-                    p_value.requires_grad = False
-        else:
-            self.w_embed = EmbedLayer(num_embeddings=vocabs['w_vocab'].n_word,
-                                      embedding_dim=config['word_embed_dim'],
-                                      pretrained=vocabs['w_vocab'].pretrained,
-                                      ignore=vocabs['w_vocab'].word2id[vocabs['w_vocab'].PAD],
-                                      mapping=vocabs['w_vocab'].word2id,
-                                      freeze=config['freeze_words'])
+        self.w_embed = EmbedLayer(num_embeddings=vocabs['w_vocab'].n_word,
+                                  embedding_dim=config['word_embed_dim'],
+                                  pretrained=vocabs['w_vocab'].pretrained,
+                                  ignore=vocabs['w_vocab'].word2id[vocabs['w_vocab'].PAD],
+                                  mapping=vocabs['w_vocab'].word2id,
+                                  freeze=config['freeze_words'])
 
         self.r_embed = EmbedLayer(num_embeddings=len(vocabs['r_vocab']),
                                   embedding_dim=config['rel_embed_dim'])

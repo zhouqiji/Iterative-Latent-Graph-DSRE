@@ -24,12 +24,7 @@ class GraphNet(BaseNet):
         ######################
         # Encoder
         ######################
-        if self.config['using_bert']:
-            x_vec = self.bert_embed(batch['source'], attention_mask=batch['bert_attn_mask'],
-                                    token_type_ids=batch['bert_token_ids'])
-            x_vec = x_vec[0]
-        else:
-            x_vec = self.w_embed(batch['source'])
+        x_vec = self.w_embed(batch['source'])
 
         if self.config['include_positions']:
             pos1 = self.p_embed(batch['pos1'])

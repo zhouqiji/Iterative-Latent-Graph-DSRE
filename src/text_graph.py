@@ -46,10 +46,7 @@ class TextGraph(nn.Module):
         # G-VAE
         self.lat_dim = config['latent_dim']
         self.dec_dim = config['dec_dim']
-        if config['using_bert']:
-            self.in_dim = config['bert_dim']
-        else:
-            self.in_dim = config['word_embed_dim']
+        self.in_dim = config['word_embed_dim']
         if config['include_positions']:
             self.in_dim += 2 * config['pos_embed_dim']
         else:
@@ -415,6 +412,7 @@ class TextGraph(nn.Module):
             else:
 
                 mu_, logvar_ = mu_.sum(-2), logvar_.sum(-2)
+
                 kld = (-0.5 * torch.mean(torch.sum(
                     1 + 2 * logvar_ - mu_.pow(2) - logvar_.exp().pow(2), -1
                 ))) / node_num

@@ -57,10 +57,6 @@ class BagCollates(BaseCollate):
         p2 = sum(data[7], [])
         slen = sum(data[8], [])
         mentions = sum(data[9], [])
-        bert_attn_mask = sum(data[-2], [])
-        bert_token_ids = sum(data[-1], [])
-        # pad when no bert tokenization
-        bert_attn_mask, bert_token_ids = self.pad_samples(bert_attn_mask), self.pad_samples(bert_token_ids)
 
         batch_seqs = self.pad_samples(bs)
         pos1 = self.pad_samples(p1)
@@ -72,10 +68,9 @@ class BagCollates(BaseCollate):
         if all(d is None for d in data[10]):
             return {'rel': labels, 'bag_names': bag_name, 'bag_size': bag_sizes, 'source': batch_seqs,
                     'sent_len': slen, 'mentions': mentions,
-                    'pos1': pos1, 'pos2': pos2, 'bert_attn_mask': bert_attn_mask, 'bert_token_ids': bert_token_ids}
+                    'pos1': pos1, 'pos2': pos2}
         else:
             priors = torch.from_numpy(np.stack(data[10]))
             return {'rel': labels, 'bag_names': bag_name, 'bag_size': bag_sizes, 'source': batch_seqs,
                     'sent_len': slen, 'mentions': mentions,
-                    'pos1': pos1, 'pos2': pos2, 'prior_mus': priors, 'bert_attn_mask': bert_attn_mask,
-                    'bert_token_ids': bert_token_ids}
+                    'pos1': pos1, 'pos2': pos2, 'prior_mus': priors}

@@ -14,21 +14,17 @@ exp_name: 'nyt10'
 model_name: 'nyt10'
 
 # Hyper-parameters
-batch_size: 8
+batch_size: 64
 epochs: 100
 bag_size: 500
 word_embed_dim: 50
-# Bert
-using_bert: True   # Bert or not
-bert_dim: 768
-bert_path: bert-base-uncased        # or local models
 rel_embed_dim: 64
 pos_embed_dim: 8
 latent_dim: 64
-max_sent_len: 50
+max_sent_len: 70     # TODO
 pretrained_embeds_file: ../embeds/glove.6B.50d.txt  # vec.txt (Lin et al., 2016)
 freeze_words: False
-enc_dim: 128
+enc_dim: 256         # TODO
 dec_dim: 128
 enc_layers: 1
 dec_layers: 1

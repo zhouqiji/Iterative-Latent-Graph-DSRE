@@ -14,14 +14,10 @@ exp_name: 'wiki_distant'
 model_name: 'wiki_distant'
 
 # Hyper-parameters
-batch_size: 64
+batch_size: 128
 epochs: 100
 bag_size: 500
 word_embed_dim: 50
-# Bert
-using_bert: True   # Bert or not
-bert_dim: 768
-bert_path: bert-base-uncased        # or local models
 rel_embed_dim: 128
 pos_embed_dim: 8
 latent_dim: 0

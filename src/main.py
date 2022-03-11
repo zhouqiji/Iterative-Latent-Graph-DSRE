@@ -35,7 +35,7 @@ def load_data(word_vocab, prior_mus, config, pos_vocab=None, mode='train'):
                                pos_vocab=pos_vocab,
                                max_sent_length=config['max_sent_len'],
                                max_vocab=config['max_vocab_size'],
-                               max_bag_size=config['bag_size'], bert_name=config['bert_path'], mode=mode)
+                               max_bag_size=config['bag_size'], mode=mode)
     print(len(train_data_))
     train_loader_ = DataLoader(dataset=train_data_,
                                batch_size=config['batch_size'],
@@ -48,7 +48,7 @@ def load_data(word_vocab, prior_mus, config, pos_vocab=None, mode='train'):
                              train_data_.word_vocab if mode == 'train' else word_vocab,
                              prior_mus,
                              pos_vocab=train_data_.pos_vocab if mode == 'train' else pos_vocab,
-                             max_sent_length=train_data_.max_sent_length, max_bag_size=0, bert_name=config['bert_path'],
+                             max_sent_length=train_data_.max_sent_length, max_bag_size=0,
                              mode='val')
     print(len(val_data_))
     val_loader_ = DataLoader(dataset=val_data_,
@@ -64,7 +64,7 @@ def load_data(word_vocab, prior_mus, config, pos_vocab=None, mode='train'):
                               prior_mus,
                               pos_vocab=train_data_.pos_vocab if mode == 'train' else pos_vocab,
                               max_sent_length=train_data_.max_sent_length, max_bag_size=0,
-                              bert_name=config['bert_path'], mode='test')
+                              mode='test')
     print(len(test_data_))
     test_loader_ = DataLoader(dataset=test_data_,
                               batch_size=config['batch_size'],
@@ -123,7 +123,7 @@ def main(args):
     print()
 
     #  Pre-trained embeddings
-    if config['pretrained_embeds_file'] and not config['using_bert']:
+    if config['pretrained_embeds_file']:
         print("Loading pretrained word embeddings ... ", end='')
         word_vocab = Words()
         word_vocab.pretrained = load_pretrained_embeds(config['pretrained_embeds_file'], config['word_embed_dim'])
