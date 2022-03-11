@@ -286,10 +286,11 @@ class BagREDataset(Dataset):
                                       mentions['m2'][0] + 1, mentions['m2'][-1] + 1]]
 
                 # Reduce mentions greater than max_length
-                for m in bag_mentions:
-                    for idx in range(len(m)):
-                        if m[idx] > self.max_sent_length:
-                            m[idx] = self.max_sent_length
+                if self.mode == 'train' or self.mode == 'train-test':
+                    for m in bag_mentions:
+                        for idx in range(len(m)):
+                            if m[idx] > self.max_sent_length:
+                                m[idx] = self.max_sent_length
 
                 # Do not forget the additional <PAD> for <SOS>
                 pos1_ = [self.pos_vocab.pos2id[self.pos_vocab.PAD]] + \
