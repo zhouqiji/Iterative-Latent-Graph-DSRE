@@ -26,14 +26,12 @@ class BaseNet(nn.Module):
         if self.config['using_bert']:
             bert_config = BertConfig.from_pretrained(config['bert_path'])
             self.bert_embed = BertModel(bert_config)
-            for v in self.bert_embed.parameters():
-                v.requires_grad = False
             # Freezing
-            # for p_name, p_value in self.bert_embed.named_parameters():
-            #     if not p_name.startswith("encoder.layer"):
-            #         p_value.requires_grad = False
-            #     elif p_name.startswith("encoder.layer") and ("11" not in p_name):
-            #         p_value.requires_grad = False
+            for p_name, p_value in self.bert_embed.named_parameters():
+                if not p_name.startswith("encoder.layer"):
+                    p_value.requires_grad = False
+                elif p_name.startswith("encoder.layer") and ("11" not in p_name):
+                    p_value.requires_grad = False
         else:
             self.w_embed = EmbedLayer(num_embeddings=vocabs['w_vocab'].n_word,
                                       embedding_dim=config['word_embed_dim'],

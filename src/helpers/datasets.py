@@ -7,13 +7,13 @@ from .vocabs import *
 from collections import OrderedDict
 from transformers import BertTokenizer
 
-# ADDITIONAL_SPECIAL_TOKENS = ["<e1>", "</e1>", "<e2>", "</e2>"]
+ADDITIONAL_SPECIAL_TOKENS = ["<e1>", "</e1>", "<e2>", "</e2>"]
 
 
 # Load bert tokenizer
 def load_tokenizer(bert_path):
     tokenizer = BertTokenizer.from_pretrained(bert_path)
-    # tokenizer.add_special_tokens({"additional_special_tokens": ADDITIONAL_SPECIAL_TOKENS})
+    tokenizer.add_special_tokens({"additional_special_tokens": ADDITIONAL_SPECIAL_TOKENS})
     return tokenizer
 
 
@@ -68,91 +68,91 @@ class BagREDataset(Dataset):
                     e2 = s['t']['tokens']
                     tokens_num = len(txt.split(' '))
 
-                    # if config['using_bert']:
-                    #     temp_sent_list = txt.split()
-                    #     # insert entity tag
-                    #     if min(e1) > max(e2):  # e1 after e2
-                    #         # insert e1
-                    #         e1_start = e1[0]
-                    #         temp_sent_list.insert(e1_start, "<e1>")
-                    #         e1_end = e1[0] + len(e1) + 1
-                    #         temp_sent_list.insert(e1_end, "</e1>")
-                    #         # insert e2
-                    #         e2_start = e2[0]
-                    #         temp_sent_list.insert(e2_start, "<e2>")
-                    #         e2_end = e2[0] + len(e2) + 1
-                    #         temp_sent_list.insert(e2_end, "</e2>")
-                    #         e1 = [temp_sent_list.index("<e1>"), temp_sent_list.index("</e1>")]
-                    #         e2 = [temp_sent_list.index("<e2>"), temp_sent_list.index("</e2>")]
-                    #     elif max(e1) < min(e2):  # e2 after e1
-                    #         # insert e2
-                    #         e2_start = e2[0]
-                    #         temp_sent_list.insert(e2_start, "<e2>")
-                    #         e2_end = e2[0] + len(e2) + 1
-                    #         temp_sent_list.insert(e2_end, "</e2>")
-                    #         # insert e1
-                    #         e1_start = e1[0]
-                    #         temp_sent_list.insert(e1_start, "<e1>")
-                    #         e1_end = e1[0] + len(e1) + 1
-                    #         temp_sent_list.insert(e1_end, "</e1>")
-                    #         e1 = [temp_sent_list.index("<e1>"), temp_sent_list.index("</e1>")]
-                    #         e2 = [temp_sent_list.index("<e2>"), temp_sent_list.index("</e2>")]
-                    #     else:  # e1 or e2 contain others
-                    #         if e2[0] <= e1[0] and e2[-1] >= e1[-1]:  # e2 contains e1
-                    #             # insert e1
-                    #             e1_start = e1[0]
-                    #             temp_sent_list.insert(e1_start, "<e1>")
-                    #             e1_end = e1[0] + len(e1) + 1
-                    #             temp_sent_list.insert(e1_end, "</e1>")
-                    #             # insert e2
-                    #             e2_start = e2[0]
-                    #             temp_sent_list.insert(e2_start, "<e2>")
-                    #             e2_end = e2[0] + len(e2) + (e1_end - e1_start) + 1
-                    #             temp_sent_list.insert(e2_end, "</e2>")
-                    #             e2 = e1 = [temp_sent_list.index("<e2>"), temp_sent_list.index("</e2>")]
-                    #         else:   # e1 contains e2
-                    #             # insert e2
-                    #             e2_start = e2[0]
-                    #             temp_sent_list.insert(e2_start, "<e2>")
-                    #             e2_end = e2[0] + len(e2) + 1
-                    #             temp_sent_list.insert(e2_end, "</e2>")
-                    #             # insert e1
-                    #             e1_start = e1[0]
-                    #             temp_sent_list.insert(e1_start, "<e1>")
-                    #             e1_end = e1[0] + len(e1) + (e2_end - e2_start) + 1
-                    #             temp_sent_list.insert(e1_end, "</e1>")
-                    #             e1 = e2 = [temp_sent_list.index("<e1>"), temp_sent_list.index("</e1>")]
-                    #
-                    #     # e1 = [temp_sent_list.index("<e1>"), temp_sent_list.index("</e1>")]
-                    #     # e2 = [temp_sent_list.index("<e2>"), temp_sent_list.index("</e2>")]
-                    #     e1 = list(range(e1[0], e1[-1] + 1))
-                    #     e2 = list(range(e2[0], e2[-1] + 1))
-                    #     tokens_num = len(temp_sent_list)
-                    #     if len(e1) == 1:
-                    #         e1_ = [e1[0]] * tokens_num
-                    #     else:
-                    #         e1_ = [e1[0]] * (e1[0]) + e1 + [e1[-1]] * (tokens_num - e1[-1] - 1)
-                    #
-                    #     if len(e2) == 1:
-                    #         e2_ = [e2[0]] * tokens_num
-                    #     else:
-                    #         e2_ = [e2[0]] * (e2[0]) + e2 + [e2[-1]] * (tokens_num - e2[-1] - 1)
-                    #
-                    #     assert len(e1_) == tokens_num and len(e2_) == tokens_num
-                    #     txt = " ".join(temp_sent_list)
-                    # else:
+                    if config['using_bert']:
+                        temp_sent_list = txt.split()
+                        # insert entity tag
+                        if min(e1) > max(e2):  # e1 after e2
+                            # insert e1
+                            e1_start = e1[0]
+                            temp_sent_list.insert(e1_start, "<e1>")
+                            e1_end = e1[0] + len(e1) + 1
+                            temp_sent_list.insert(e1_end, "</e1>")
+                            # insert e2
+                            e2_start = e2[0]
+                            temp_sent_list.insert(e2_start, "<e2>")
+                            e2_end = e2[0] + len(e2) + 1
+                            temp_sent_list.insert(e2_end, "</e2>")
+                            e1 = [temp_sent_list.index("<e1>"), temp_sent_list.index("</e1>")]
+                            e2 = [temp_sent_list.index("<e2>"), temp_sent_list.index("</e2>")]
+                        elif max(e1) < min(e2):  # e2 after e1
+                            # insert e2
+                            e2_start = e2[0]
+                            temp_sent_list.insert(e2_start, "<e2>")
+                            e2_end = e2[0] + len(e2) + 1
+                            temp_sent_list.insert(e2_end, "</e2>")
+                            # insert e1
+                            e1_start = e1[0]
+                            temp_sent_list.insert(e1_start, "<e1>")
+                            e1_end = e1[0] + len(e1) + 1
+                            temp_sent_list.insert(e1_end, "</e1>")
+                            e1 = [temp_sent_list.index("<e1>"), temp_sent_list.index("</e1>")]
+                            e2 = [temp_sent_list.index("<e2>"), temp_sent_list.index("</e2>")]
+                        else:  # e1 or e2 contain others
+                            if e2[0] <= e1[0] and e2[-1] >= e1[-1]:  # e2 contains e1
+                                # insert e1
+                                e1_start = e1[0]
+                                temp_sent_list.insert(e1_start, "<e1>")
+                                e1_end = e1[0] + len(e1) + 1
+                                temp_sent_list.insert(e1_end, "</e1>")
+                                # insert e2
+                                e2_start = e2[0]
+                                temp_sent_list.insert(e2_start, "<e2>")
+                                e2_end = e2[0] + len(e2) + (e1_end - e1_start) + 1
+                                temp_sent_list.insert(e2_end, "</e2>")
+                                e2 = e1 = [temp_sent_list.index("<e2>"), temp_sent_list.index("</e2>")]
+                            else:  # e1 contains e2
+                                # insert e2
+                                e2_start = e2[0]
+                                temp_sent_list.insert(e2_start, "<e2>")
+                                e2_end = e2[0] + len(e2) + 1
+                                temp_sent_list.insert(e2_end, "</e2>")
+                                # insert e1
+                                e1_start = e1[0]
+                                temp_sent_list.insert(e1_start, "<e1>")
+                                e1_end = e1[0] + len(e1) + (e2_end - e2_start) + 1
+                                temp_sent_list.insert(e1_end, "</e1>")
+                                e1 = e2 = [temp_sent_list.index("<e1>"), temp_sent_list.index("</e1>")]
 
-                    if len(e1) == 1:
-                        e1_ = [e1[0]] * tokens_num
+                        # e1 = [temp_sent_list.index("<e1>"), temp_sent_list.index("</e1>")]
+                        # e2 = [temp_sent_list.index("<e2>"), temp_sent_list.index("</e2>")]
+                        e1 = list(range(e1[0], e1[-1] + 1))
+                        e2 = list(range(e2[0], e2[-1] + 1))
+                        tokens_num = len(temp_sent_list)
+                        if len(e1) == 1:
+                            e1_ = [e1[0]] * tokens_num
+                        else:
+                            e1_ = [e1[0]] * (e1[0]) + e1 + [e1[-1]] * (tokens_num - e1[-1] - 1)
+
+                        if len(e2) == 1:
+                            e2_ = [e2[0]] * tokens_num
+                        else:
+                            e2_ = [e2[0]] * (e2[0]) + e2 + [e2[-1]] * (tokens_num - e2[-1] - 1)
+
+                        assert len(e1_) == tokens_num and len(e2_) == tokens_num
+                        txt = " ".join(temp_sent_list)
                     else:
-                        e1_ = [e1[0]] * (e1[0]) + e1 + [e1[-1]] * (tokens_num - e1[-1] - 1)
 
-                    if len(e2) == 1:
-                        e2_ = [e2[0]] * tokens_num
-                    else:
-                        e2_ = [e2[0]] * (e2[0]) + e2 + [e2[-1]] * (tokens_num - e2[-1] - 1)
+                        if len(e1) == 1:
+                            e1_ = [e1[0]] * tokens_num
+                        else:
+                            e1_ = [e1[0]] * (e1[0]) + e1 + [e1[-1]] * (tokens_num - e1[-1] - 1)
 
-                    assert len(e1_) == tokens_num and len(e2_) == tokens_num
+                        if len(e2) == 1:
+                            e2_ = [e2[0]] * tokens_num
+                        else:
+                            e2_ = [e2[0]] * (e2[0]) + e2 + [e2[-1]] * (tokens_num - e2[-1] - 1)
+
+                        assert len(e1_) == tokens_num and len(e2_) == tokens_num
 
                     pos1 = np.array(range(tokens_num), 'i') - np.array(e1_)
                     pos2 = np.array(range(tokens_num), 'i') - np.array(e2_)
@@ -213,31 +213,57 @@ class BagREDataset(Dataset):
 
                 # TODO: Get Bert token and masks [input_ids, attention_masks, token_type_is]
                 if self.config['using_bert']:
-                    # tokens_a = self.tokenizer.tokenize(sentence)
-                    tokens_a = sentence.split()
+                    tokens_a = self.tokenizer.tokenize(sentence)
+                    cls_token_id = self.tokenizer.cls_token_id
 
-                    # e11_p = tokens_a.index("<e1>")  # the start position of entity1
-                    # e12_p = tokens_a.index("</e1>")  # the end position of entity1
-                    # e21_p = tokens_a.index("<e2>")  # the start position of entity2
-                    # e22_p = tokens_a.index("</e2>")  # the end position of entity2
-                    #
-                    # # Replace the token
-                    # tokens_a[e11_p] = "$"
-                    # tokens_a[e12_p] = "$"
-                    # tokens_a[e21_p] = "#"
-                    # tokens_a[e22_p] = "#"
+                    e11_p = tokens_a.index("<e1>")  # the start position of entity1
+                    e12_p = tokens_a.index("</e1>")  # the end position of entity1
+                    e21_p = tokens_a.index("<e2>")  # the start position of entity2
+                    e22_p = tokens_a.index("</e2>")  # the end position of entity2
 
-                    tokens = tokens_a
+                    e1 = list(range(e11_p, e12_p + 1))
+                    e2 = list(range(e21_p, e22_p + 1))
+                    # Replace the token
+                    tokens_a[e11_p] = "$"
+                    tokens_a[e12_p] = "$"
+                    tokens_a[e21_p] = "#"
+                    tokens_a[e22_p] = "#"
+
+                    # Update mentions
+                    mentions['m1'] = e1
+                    mentions['m2'] = e2
+                    tokens_num = len(tokens_a)
+                    if len(e1) == 1:
+                        e1_ = [e1[0]] * tokens_num
+                    else:
+                        e1_ = [e1[0]] * (e1[0]) + e1 + [e1[-1]] * (tokens_num - e1[-1] - 1)
+
+                    if len(e2) == 1:
+                        e2_ = [e2[0]] * tokens_num
+                    else:
+                        e2_ = [e2[0]] * (e2[0]) + e2 + [e2[-1]] * (tokens_num - e2[-1] - 1)
+
+                    assert len(e1_) == tokens_num and len(e2_) == tokens_num
+
+                    p1 = np.array(range(tokens_num), 'i') - np.array(e1_)
+                    p2 = np.array(range(tokens_num), 'i') - np.array(e2_)
+
+                    mentions['pos1'] = p1
+                    mentions['pos2'] = p2
+
+                    tokens_a = self.tokenizer.convert_tokens_to_ids(tokens_a)
+
                     if self.mode == 'train' or self.mode == 'train-test':
-                        tokens = tokens[:self.max_sent_length]  # restrict to max_sent_length add 'cls'
-                    token_type_ids = [0] * len(tokens)
-                    tokens = ["CLS"] + tokens
+                        tokens_a = tokens_a[:self.max_sent_length]  # restrict to max_sent_length add 'cls'
+
+                    token_type_ids = [0] * len(tokens_a)
+                    tokens_a = [cls_token_id] + tokens_a
                     token_type_ids = [0] + token_type_ids
 
-                    input_ids = self.tokenizer.convert_tokens_to_ids(tokens)
+                    # input_ids = self.tokenizer.convert_tokens_to_ids(tokens)
                     # The mask has 1 for real tokens and 0 for padding tokens. Only real tokens are attended to.
-                    attention_mask = [1] * len(input_ids)
-                    tmp_source = input_ids
+                    attention_mask = [1] * len(tokens_a)
+                    tmp_source = tokens_a
                 else:
                     tmp = self.word_vocab.get_ids(sentence, replace=False)
                     if self.mode == 'train' or self.mode == 'train-test':
@@ -252,8 +278,18 @@ class BagREDataset(Dataset):
                 token_ids += [token_type_ids]
                 sent_len += [len(tmp_source)]
 
-                bag_mentions += [[mentions['m1'][0] + 1, mentions['m1'][-1] + 1,
-                                  mentions['m2'][0] + 1, mentions['m2'][-1] + 1]]
+                if self.config['using_bert']:
+                    bag_mentions += [[mentions['m1'][0] + 1, mentions['m1'][-1] + 1,
+                                      mentions['m2'][0] + 1, mentions['m2'][-1] + 1]]
+                else:
+                    bag_mentions += [[mentions['m1'][0] + 1, mentions['m1'][-1] + 1,
+                                      mentions['m2'][0] + 1, mentions['m2'][-1] + 1]]
+
+                # Reduce mentions greater than max_length
+                for m in bag_mentions:
+                    for idx in range(len(m)):
+                        if m[idx] > self.max_sent_length:
+                            m[idx] = self.max_sent_length
 
                 # Do not forget the additional <PAD> for <SOS>
                 pos1_ = [self.pos_vocab.pos2id[self.pos_vocab.PAD]] + \
@@ -267,7 +303,6 @@ class BagREDataset(Dataset):
                 else:
                     pos1 += [torch.tensor(pos1_).long()]
                     pos2 += [torch.tensor(pos2_).long()]
-
 
             if self.priors:
                 if pair_name in self.priors:
