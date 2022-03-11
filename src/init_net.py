@@ -25,8 +25,11 @@ class BaseNet(nn.Module):
 
         if self.config['using_bert']:
             bert_config = BertConfig.from_pretrained(config['bert_path'])
+            bert_config.max_position_embeddings = 1024
             self.bert_embed = BertModel(bert_config)
             # Freezing
+            # for v in self.bert_embed.parameters():
+            #     v.requires_grad = False
             for p_name, p_value in self.bert_embed.named_parameters():
                 if not p_name.startswith("encoder.layer"):
                     p_value.requires_grad = False
