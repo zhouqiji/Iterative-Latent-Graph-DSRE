@@ -9,7 +9,6 @@ from modules.gvae import GVAE
 from modules.gnn import GCN, SGC
 from modules.graphlearn import GraphLearner, get_binarized_kneighbors_graph
 from modules.utils import batch_normalize_adj
-from modules.ModifiedAdaptiveSoftmax import AdaptiveLogSoftmaxWithLoss
 from modules.constants import VERY_SMALL_NUMBER
 
 from helpers.common import *
@@ -65,10 +64,21 @@ class TextGraph(nn.Module):
                              self.dropout,
                              config['graph_hops'],
                              self.graph_module)
-
-            self.reco_loss = AdaptiveLogSoftmaxWithLoss(config['dec_dim'], vocabs['w_vocab'].n_word,
-                                                        cutoffs=[round(vocabs['w_vocab'].n_word / 15),
-                                                                 3 * round(vocabs['w_vocab'].n_word / 15)])
+            if self.config['priors']:
+                self.mu_encoder = LSTMEncoder(in_features=config['latent_dim'],
+                                              h_enc_dim=config['latent_dim'],
+                                              layers_num=1,
+                                              dir2=True,
+                                              device=self.device,
+                                              action='sum'
+                                              )
+                self.var_encoder = LSTMEncoder(in_features=config['latent_dim'],
+                                               h_enc_dim=config['latent_dim'],
+                                               layers_num=1,
+                                               dir2=True,
+                                               device=self.device,
+                                               action='sum'
+                                               )
 
         if self.graph_module == 'gcn':
             gcn_module = GCN
@@ -199,13 +209,6 @@ class TextGraph(nn.Module):
         arg1 = torch.div(torch.matmul(index_t1, enc_seq), torch.sum(index_t1, dim=2).unsqueeze(-1)).squeeze(1)  # avg
         arg2 = torch.div(torch.matmul(index_t2, enc_seq), torch.sum(index_t2, dim=2).unsqueeze(-1)).squeeze(1)  # avg
         return arg1, arg2
-
-    def graph_reco_loss(self, preds, labels, mu, log_var, n_nodes, norm, pos_weight):
-        cost = norm * F.binary_cross_entropy_with_logits(preds, labels, pos_weight=pos_weight)
-        KLD = -0.5 / n_nodes * torch.mean(torch.sum(
-            1 + 2 * log_var - mu.pow(2) - log_var.exp().pow(2), 1
-        ))
-        return cost, KLD
 
     def add_batch_graph_loss(self, out_adj, features, keep_batch_dim=False, sent_len=None, sent_mask=None):
         # Graph regularization
@@ -392,7 +395,12 @@ class TextGraph(nn.Module):
             if self.config['priors']:
                 prior_mus_expanded = torch.repeat_interleave(batch['prior_mus'],
                                                              repeats=batch['bag_size'], dim=0)
-                mu_, logvar_ = mu_.sum(-2), logvar_.sum(-2)
+                # mu_, logvar_ = mu_.sum(-2), logvar_.sum(-2)
+                _, (mu_h, mu_s) = self.mu_encoder(mu_, batch['sent_len'])
+                _, (logvar_h, logvar_s) = self.mu_encoder(logvar_, batch['sent_len'])
+
+                mu_ = mu_h + mu_s
+                logvar_ = logvar_h + logvar_s
 
                 mu_diff = prior_mus_expanded - mu_
                 kld = (-0.5 * torch.mean(torch.sum(
