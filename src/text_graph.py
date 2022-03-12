@@ -66,17 +66,6 @@ class TextGraph(nn.Module):
                              config['graph_hops'],
                              self.graph_module)
 
-            self.reduction = nn.Linear(in_features=config['latent_dim'] + 2 * config['enc_dim'],
-                                       out_features=config['rel_embed_dim'],
-                                       bias=False)
-
-            decoder_dim = config['word_embed_dim'] + config['latent_dim']
-            self.lang_decoder = LSTMDecoder(in_features=decoder_dim,
-                                            h_dec_dim=config['dec_dim'],
-                                            layers_num=config['dec_layers'],
-                                            dir2=config['dec_bidirectional'],
-                                            device=self.device,
-                                            action='sum')
             self.reco_loss = AdaptiveLogSoftmaxWithLoss(config['dec_dim'], vocabs['w_vocab'].n_word,
                                                         cutoffs=[round(vocabs['w_vocab'].n_word / 15),
                                                                  3 * round(vocabs['w_vocab'].n_word / 15)])

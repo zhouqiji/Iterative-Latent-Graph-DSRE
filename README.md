@@ -27,7 +27,7 @@ cd data
 python get_data.py --dataset [nyt10, nyt10_570k, wiki_distant]      # nyt10 before nyt10_570k for sharing file
 
 # Pre-process the data
-python preprocess.py --max_sent_len 70 [30 for wikidata] --lowercase --max_bag_size 500 --path LANG/[nyt10, nyt10_570k, wiki_distant]  --dataset [nyt10, nyt10_570k, wiki_distant]
+python preprocess.py --max_sent_len 50 [30 for wikidata] --lowercase --max_bag_size 500 --path LANG/[nyt10, nyt10_570k, wiki_distant]  --dataset [nyt10, nyt10_570k, wiki_distant]
 
 ```
 
