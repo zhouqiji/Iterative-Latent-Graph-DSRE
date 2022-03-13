@@ -65,15 +65,17 @@ class TextGraph(nn.Module):
                              config['graph_hops'],
                              self.graph_module)
             if self.config['priors']:
-                self.mu_encoder = LSTMEncoder(in_features=config['latent_dim'],
-                                              h_enc_dim=config['latent_dim'],
+                latent_dim = config['latent_dim']
+                hid_dim = latent_dim // 2
+                self.mu_encoder = LSTMEncoder(in_features=latent_dim,
+                                              h_enc_dim=hid_dim,
                                               layers_num=1,
                                               dir2=True,
                                               device=self.device,
                                               action='sum'
                                               )
-                self.var_encoder = LSTMEncoder(in_features=config['latent_dim'],
-                                               h_enc_dim=config['latent_dim'],
+                self.var_encoder = LSTMEncoder(in_features=latent_dim,
+                                               h_enc_dim=hid_dim,
                                                layers_num=1,
                                                dir2=True,
                                                device=self.device,
@@ -399,8 +401,8 @@ class TextGraph(nn.Module):
                 _, (mu_h, mu_s) = self.mu_encoder(mu_, batch['sent_len'])
                 _, (logvar_h, logvar_s) = self.mu_encoder(logvar_, batch['sent_len'])
 
-                mu_ = mu_h + mu_s
-                logvar_ = logvar_h + logvar_s
+                mu_ = torch.cat([mu_h, mu_s], dim=-1)
+                logvar_ = torch.cat([logvar_h, logvar_s], dim=-1)
 
                 mu_diff = prior_mus_expanded - mu_
                 kld = (-0.5 * torch.mean(torch.sum(

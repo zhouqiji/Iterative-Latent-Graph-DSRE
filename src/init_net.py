@@ -29,9 +29,6 @@ class BaseNet(nn.Module):
                                   mapping=vocabs['w_vocab'].word2id,
                                   freeze=config['freeze_words'])
 
-        self.r_embed = EmbedLayer(num_embeddings=len(vocabs['r_vocab']),
-                                  embedding_dim=config['rel_embed_dim'])
-
         self.p_embed = EmbedLayer(num_embeddings=vocabs['p_vocab'].n_pos,
                                   embedding_dim=config['pos_embed_dim'],
                                   ignore=vocabs['p_vocab'].pos2id[vocabs['p_vocab'].PAD])
