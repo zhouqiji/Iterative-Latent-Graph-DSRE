@@ -211,7 +211,6 @@ class Trainer(BaseTrainer):
 
                 task_loss, graph_loss, rel_probs, kld, rec_loss, latent_z = self.model(batch)  # forward pass
 
-                # TODO: total loss contains graph loss
                 if self.config['reconstruction']:
                     loss = self.config['task_weight'] * task_loss + (1 - self.config['task_weight']) * (
                             rec_loss + kld)

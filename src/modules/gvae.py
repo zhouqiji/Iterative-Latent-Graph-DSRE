@@ -24,6 +24,7 @@ class GVAE(nn.Module):
 
     def encode(self, x, adj):
         hid1 = self.gc_emb(x, adj)
+        hid1 = torch.relu(hid1)
         return self.gc_mu(hid1, adj), self.gc_var(hid1, adj)
 
     def re_parameterize(self, mu, logvar):

@@ -14,7 +14,7 @@ exp_name: 'nyt10'
 model_name: 'nyt10'
 
 # Hyper-parameters
-batch_size: 64
+batch_size: 32
 epochs: 100
 bag_size: 500
 word_embed_dim: 50
@@ -41,7 +41,7 @@ cutoff_freq:
 lowercase: True
 primary_metric: pr_auc
 patience: 5
-task_weight: 0.6
+task_weight: 0.8
 
 # FLAGS
 early_stop: True
@@ -67,7 +67,7 @@ smoothness_ratio: 0.5 # GL: 0.5!
 degree_ratio: 0.01 # GL: 0.01!
 sparsity_ratio: 0.3 # GL: 0.3!
 graph_learn_ratio: 0 # 0
-input_graph_knn_size: 970 #
+input_graph_knn_size: 10 #
 graph_learn_hidden_size: 70 #
 graph_learn_epsilon: 0.3 # GL: 0.3, IGL: 0.3!
 graph_learn_topk: null #

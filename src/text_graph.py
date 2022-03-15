@@ -64,23 +64,18 @@ class TextGraph(nn.Module):
                              self.dropout,
                              config['graph_hops'],
                              self.graph_module)
-            if self.config['priors']:
-                latent_dim = config['latent_dim']
-                hid_dim = latent_dim // 2
-                self.mu_encoder = LSTMEncoder(in_features=latent_dim,
-                                              h_enc_dim=hid_dim,
-                                              layers_num=1,
-                                              dir2=True,
-                                              device=self.device,
-                                              action='sum'
-                                              )
-                self.var_encoder = LSTMEncoder(in_features=latent_dim,
-                                               h_enc_dim=hid_dim,
-                                               layers_num=1,
-                                               dir2=True,
-                                               device=self.device,
-                                               action='sum'
-                                               )
+            self.mu_hid = LSTMEncoder(in_features=config['latent_dim'],
+                                      h_enc_dim=config['latent_dim'] // 2,
+                                      layers_num=config['enc_layers'],
+                                      dir2=config['enc_bidirectional'],
+                                      device=self.device,
+                                      action='sum')
+            self.var_hid = LSTMEncoder(in_features=config['latent_dim'],
+                                       h_enc_dim=config['latent_dim'] // 2,
+                                       layers_num=config['enc_layers'],
+                                       dir2=config['enc_bidirectional'],
+                                       device=self.device,
+                                       action='sum')
 
         if self.graph_module == 'gcn':
             gcn_module = GCN
@@ -127,7 +122,7 @@ class TextGraph(nn.Module):
             raw_adj = graph_learner(node_features, node_mask)
 
             if self.graph_metric_type in ('kernel', 'weighted_cosine'):
-                assert raw_adj.min().item() >= 0
+                raw_adj = torch.nan_to_num(raw_adj)
                 adj = raw_adj / torch.clamp(torch.sum(raw_adj, dim=-1, keepdim=True), min=VERY_SMALL_NUMBER)
 
             else:
@@ -179,6 +174,7 @@ class TextGraph(nn.Module):
 
     def compute_init_adj(self, features, knn_size, mask=None):
         adj = get_binarized_kneighbors_graph(features, knn_size, mask=mask, device=self.device)
+
         adj_norm = batch_normalize_adj(adj, mask=mask)
         return adj_norm
 
@@ -362,16 +358,19 @@ class TextGraph(nn.Module):
 
         # Recover loss
         if self.config['reconstruction']:
-            reco_loss = self.comput_reco_loss(init_adj, cur_adj)
+            reco_loss = self.compute_reco_loss(init_adj, cur_adj.detach())
         else:
             reco_loss = torch.zeros((1,)).to(self.device)
 
         return loss, graph_loss, reco_loss, rel_probs, cur_adj
 
-    def comput_reco_loss(self, init_adj, cur_adj):
-        mean_adj_sum = cur_adj.sum(-1).sum(-1).mean()
+    def compute_reco_loss(self, init_adj, cur_adj):
+        # mean_adj_sum = cur_adj.sum(-1).sum(-1).mean()
+
+        mean_adj_sum = cur_adj.sum(-1).sum(-1)
         pos_weight = (cur_adj.size(-1) * cur_adj.size(-1) - mean_adj_sum) / mean_adj_sum
         norm = (cur_adj.size(-1) * cur_adj.size(-1)) / (cur_adj.size(-1) * cur_adj.size(-1) - 2 * mean_adj_sum)
+        pos_weight, norm = pos_weight.mean(), norm.mean()
         cost = norm * F.binary_cross_entropy_with_logits(init_adj, cur_adj, pos_weight=pos_weight.detach())
         return cost
 
@@ -394,17 +393,19 @@ class TextGraph(nn.Module):
             init_adj, mu_, logvar_ = self.gvae(context_vec, init_adj, node_mask)
             node_num = init_adj.size(-1)
 
+            init_adj = torch.nan_to_num(init_adj)
             if self.config['priors']:
                 prior_mus_expanded = torch.repeat_interleave(batch['prior_mus'],
                                                              repeats=batch['bag_size'], dim=0)
+
                 # mu_, logvar_ = mu_.sum(-2), logvar_.sum(-2)
-                _, (mu_h, mu_s) = self.mu_encoder(mu_, batch['sent_len'])
-                _, (logvar_h, logvar_s) = self.mu_encoder(logvar_, batch['sent_len'])
+                _, (mu_hidden, mu_state) = self.mu_hid(mu_, batch['sent_len'])
+                _, (logvar_hidden, logvar_state) = self.var_hid(logvar_, batch['sent_len'])
 
-                mu_ = torch.cat([mu_h, mu_s], dim=-1)
-                logvar_ = torch.cat([logvar_h, logvar_s], dim=-1)
+                mu_ = torch.cat([mu_hidden, mu_state], dim=-1)
+                logvar_ = torch.cat([logvar_hidden, logvar_state], dim=-1)
 
-                mu_diff = prior_mus_expanded - mu_
+                mu_diff = (prior_mus_expanded - mu_)
                 kld = (-0.5 * torch.mean(torch.sum(
                     1 + 2 * logvar_ - mu_diff.pow(2) - logvar_.exp().pow(2), -1
                 ))) / node_num
@@ -440,6 +441,7 @@ class TextGraph(nn.Module):
 
         # sentence representation
         output = self.compute_output(output_node, bag_size)
+
 
         rec_features = (kld, mu_)
         graph_features = (init_adj, cur_raw_adj, cur_adj, raw_node_vec, init_node_vec, output_node,
