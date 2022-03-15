@@ -411,8 +411,12 @@ class TextGraph(nn.Module):
                 ))) / node_num
             else:
 
-                mu_, logvar_ = mu_.sum(-2), logvar_.sum(-2)
+                # mu_, logvar_ = mu_.sum(-2), logvar_.sum(-2)
+                _, (mu_hidden, mu_state) = self.mu_hid(mu_, batch['sent_len'])
+                _, (logvar_hidden, logvar_state) = self.var_hid(logvar_, batch['sent_len'])
 
+                mu_ = torch.cat([mu_hidden, mu_state], dim=-1)
+                logvar_ = torch.cat([logvar_hidden, logvar_state], dim=-1)
                 kld = (-0.5 * torch.mean(torch.sum(
                     1 + 2 * logvar_ - mu_.pow(2) - logvar_.exp().pow(2), -1
                 ))) / node_num
@@ -441,7 +445,6 @@ class TextGraph(nn.Module):
 
         # sentence representation
         output = self.compute_output(output_node, bag_size)
-
 
         rec_features = (kld, mu_)
         graph_features = (init_adj, cur_raw_adj, cur_adj, raw_node_vec, init_node_vec, output_node,
