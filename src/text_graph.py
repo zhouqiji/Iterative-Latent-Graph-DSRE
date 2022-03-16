@@ -369,6 +369,9 @@ class TextGraph(nn.Module):
         raw_context_vec, context_vec, context_mask, init_adj, enc_hidden, cell_state = self.prepare_init_graph(
             raw_context_vec, context_len)
 
+        # add mention adj
+        init_adj += batch['m_adj']
+
         arg1, arg2 = self.merge_tokens(context_vec, mentions)  # contextualised representations of argument
         context_vec = context_vec + arg1.unsqueeze(dim=-2) + arg2.unsqueeze(dim=-2)
 

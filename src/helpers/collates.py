@@ -65,12 +65,25 @@ class BagCollates(BaseCollate):
         mentions = torch.from_numpy(np.stack(mentions)).long()
         assert torch.sum(bag_sizes) == batch_seqs.size(0) == slen.size(0)
 
-        if all(d is None for d in data[10]):
-            return {'rel': labels, 'bag_names': bag_name, 'bag_size': bag_sizes, 'source': batch_seqs,
-                    'sent_len': slen, 'mentions': mentions,
-                    'pos1': pos1, 'pos2': pos2}
-        else:
-            priors = torch.from_numpy(np.stack(data[10]))
-            return {'rel': labels, 'bag_names': bag_name, 'bag_size': bag_sizes, 'source': batch_seqs,
-                    'sent_len': slen, 'mentions': mentions,
-                    'pos1': pos1, 'pos2': pos2, 'prior_mus': priors}
+        # Get mentino adj
+        mention_adj = torch.zeros([batch_seqs.size(0), batch_seqs.size(-1), batch_seqs.size(-1)])
+        # Connected mention 1 with mention 2
+        for i in range(mention_adj.size(0)):
+            m1_start, m1_end, m2_start, m2_end = mentions[i]
+            for j in range(m1_start, m1_end + 1):
+                for k in range(m2_start, m2_end + 1):
+                    mention_adj[i][j][k] = 1
+
+            for j in range(m2_start, m2_end + 1):
+                for k in range(m1_start, m1_end + 1):
+                    mention_adj[i][j][k] = 1
+
+            if all(d is None for d in data[10]):
+                return {'rel': labels, 'bag_names': bag_name, 'bag_size': bag_sizes, 'source': batch_seqs,
+                        'sent_len': slen, 'mentions': mentions,
+                        'pos1': pos1, 'pos2': pos2, 'm_adj': mention_adj}
+            else:
+                priors = torch.from_numpy(np.stack(data[10]))
+                return {'rel': labels, 'bag_names': bag_name, 'bag_size': bag_sizes, 'source': batch_seqs,
+                        'sent_len': slen, 'mentions': mentions,
+                        'pos1': pos1, 'pos2': pos2, 'prior_mus': priors, 'm_adj': mention_adj}
