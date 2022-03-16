@@ -88,7 +88,6 @@ class Trainer(BaseTrainer):
 
     @staticmethod
     def kl_anneal_function(anneal_function, steps, k=0.0025, x0=2500):
-        # TODO: Updata for graph kl
         """ Credits to: https://github.com/timbmg/Sentence-VAE/blob/master/train.py#L63 """
         if anneal_function == 'logistic':
             return [float(1 / (1 + np.exp(-k * (step - x0)))) for step in range(steps)]
@@ -154,7 +153,7 @@ class Trainer(BaseTrainer):
                 self.show_example(batch)
 
             self.model.zero_grad()
-            task_loss, graph_loss, rel_probs, kld, rec_loss, latent_z = self.model(batch)  # forward pass
+            task_loss, graph_loss, rel_probs, kld, rec_loss = self.model(batch)  # forward pass
 
             if self.config['reconstruction']:
                 loss = (self.config['task_weight'] * task_loss) + \
@@ -209,7 +208,7 @@ class Trainer(BaseTrainer):
                     if keys != 'bag_names':
                         batch[keys] = batch[keys].to(self.device)
 
-                task_loss, graph_loss, rel_probs, kld, rec_loss, latent_z = self.model(batch)  # forward pass
+                task_loss, graph_loss, rel_probs, kld, rec_loss = self.model(batch)  # forward pass
 
                 if self.config['reconstruction']:
                     loss = self.config['task_weight'] * task_loss + (1 - self.config['task_weight']) * (

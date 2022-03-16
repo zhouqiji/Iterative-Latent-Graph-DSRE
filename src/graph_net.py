@@ -54,4 +54,4 @@ class GraphNet(BaseNet):
             rel_probs = task_rel_probs
 
         assert torch.sum(torch.isnan(rel_probs)) == 0.0
-        return task_loss + total_loss, graph_loss, rel_probs, kld, reco_loss, mu_
+        return task_loss + total_loss, graph_loss, rel_probs, kld, reco_loss

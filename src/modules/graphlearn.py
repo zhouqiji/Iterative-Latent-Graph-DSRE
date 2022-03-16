@@ -156,7 +156,6 @@ def get_binarized_kneighbors_graph(features, topk, mask=None, device=None):
     features_norm = features.div(torch.norm(features, p=2, dim=-1, keepdim=True))
     features_norm = torch.nan_to_num(features_norm)
     attention = torch.matmul(features_norm, features_norm.transpose(-1, -2))
-    attention = torch.nan_to_num(attention)
 
     if mask is not None:
         attention = attention.masked_fill_(~mask.bool().unsqueeze(1), 0)

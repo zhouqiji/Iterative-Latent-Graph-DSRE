@@ -161,6 +161,7 @@ class TextGraph(nn.Module):
         return graph_embed
 
     def compute_init_adj(self, features, knn_size, mask=None):
+
         adj = get_binarized_kneighbors_graph(features, knn_size, mask=mask, device=self.device)
 
         adj_norm = batch_normalize_adj(adj, mask=mask)
@@ -386,7 +387,7 @@ class TextGraph(nn.Module):
                 prior_mus_expanded = torch.repeat_interleave(batch['prior_mus'],
                                                              repeats=batch['bag_size'], dim=0)
 
-                mu_, logvar_ = mu_.sum(-2), logvar_.sum(-2)
+                mu_, logvar_ = mu_.max(-2).values, logvar_.max(-2).values
 
                 mu_diff = (prior_mus_expanded - mu_)
                 kld = (-0.5 * torch.mean(torch.sum(
@@ -425,6 +426,7 @@ class TextGraph(nn.Module):
         # sentence representation
         output = self.compute_output(output_node, bag_size)
 
+        kld = torch.where(torch.isinf(kld), torch.full_like(kld, 0), kld)
         rec_features = (kld, mu_)
         graph_features = (init_adj, cur_raw_adj, cur_adj, raw_node_vec, init_node_vec, output_node,
                           node_mask, batch['sent_len'])
