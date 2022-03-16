@@ -173,7 +173,7 @@ class BagREDataset(Dataset):
             else:
                 priors = None
                 self.data.append([labels, pair_name + ' ### ' + bag_label[0], len(bag_sents), bag_ent_offsets,
-                                  bag_seqs, bag_seqs_target, pos1, pos2, sent_len, bag_mentions, priors, mention_mask])
+                                  bag_seqs, bag_seqs_target, pos1, pos2, sent_len, bag_mentions, priors])
 
         print('Skipped: {}'.format(skipped))
 

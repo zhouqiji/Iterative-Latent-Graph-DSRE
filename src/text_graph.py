@@ -64,18 +64,6 @@ class TextGraph(nn.Module):
                              self.dropout,
                              config['graph_hops'],
                              self.graph_module)
-            self.mu_hid = LSTMEncoder(in_features=config['latent_dim'],
-                                      h_enc_dim=config['latent_dim'] // 2,
-                                      layers_num=config['enc_layers'],
-                                      dir2=config['enc_bidirectional'],
-                                      device=self.device,
-                                      action='sum')
-            self.var_hid = LSTMEncoder(in_features=config['latent_dim'],
-                                       h_enc_dim=config['latent_dim'] // 2,
-                                       layers_num=config['enc_layers'],
-                                       dir2=config['enc_bidirectional'],
-                                       device=self.device,
-                                       action='sum')
 
         if self.graph_module == 'gcn':
             gcn_module = GCN
@@ -398,12 +386,7 @@ class TextGraph(nn.Module):
                 prior_mus_expanded = torch.repeat_interleave(batch['prior_mus'],
                                                              repeats=batch['bag_size'], dim=0)
 
-                # mu_, logvar_ = mu_.sum(-2), logvar_.sum(-2)
-                _, (mu_hidden, mu_state) = self.mu_hid(mu_, batch['sent_len'])
-                _, (logvar_hidden, logvar_state) = self.var_hid(logvar_, batch['sent_len'])
-
-                mu_ = torch.cat([mu_hidden, mu_state], dim=-1)
-                logvar_ = torch.cat([logvar_hidden, logvar_state], dim=-1)
+                mu_, logvar_ = mu_.sum(-2), logvar_.sum(-2)
 
                 mu_diff = (prior_mus_expanded - mu_)
                 kld = (-0.5 * torch.mean(torch.sum(
@@ -411,12 +394,8 @@ class TextGraph(nn.Module):
                 ))) / node_num
             else:
 
-                # mu_, logvar_ = mu_.sum(-2), logvar_.sum(-2)
-                _, (mu_hidden, mu_state) = self.mu_hid(mu_, batch['sent_len'])
-                _, (logvar_hidden, logvar_state) = self.var_hid(logvar_, batch['sent_len'])
+                mu_, logvar_ = mu_.sum(-2), logvar_.sum(-2)
 
-                mu_ = torch.cat([mu_hidden, mu_state], dim=-1)
-                logvar_ = torch.cat([logvar_hidden, logvar_state], dim=-1)
                 kld = (-0.5 * torch.mean(torch.sum(
                     1 + 2 * logvar_ - mu_.pow(2) - logvar_.exp().pow(2), -1
                 ))) / node_num
