@@ -39,6 +39,7 @@ class GraphNet(BaseNet):
         graph_out, graph_features, reco_features = self.graph_encoder(x_vec, batch)
 
         kld, mu_ = reco_features
+        kld = torch.where(torch.isinf(kld), torch.full_like(kld, 1), kld)
 
         task_rel_probs, task_loss = self.calc_task_loss(graph_out, batch['rel'])
         total_loss, graph_loss, reco_loss, tmp_rel_probs, cur_adj = self.graph_encoder.learn_iter_graphs(

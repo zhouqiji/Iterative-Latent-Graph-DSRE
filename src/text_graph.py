@@ -173,9 +173,9 @@ class TextGraph(nn.Module):
 
         context_vec, (hidden, cell_state) = self.ctx_encoder(raw_context_vec, context_lens)
 
-        init_adj = self.compute_init_adj(raw_context_vec.detach(), self.config['input_graph_knn_size'],
-                                         mask=context_mask)
-        return raw_context_vec, context_vec, context_mask, init_adj, hidden, cell_state
+        # init_adj = self.compute_init_adj(raw_context_vec.detach(), self.config['input_graph_knn_size'],
+        # mask = context_mask)
+        return raw_context_vec, context_vec, context_mask, hidden, cell_state
 
     def merge_tokens(self, enc_seq, mentions):
         """
@@ -347,7 +347,7 @@ class TextGraph(nn.Module):
 
         # Recover loss
         if self.config['reconstruction']:
-            reco_loss = self.compute_reco_loss(init_adj, cur_adj.detach())
+            reco_loss = self.compute_reco_loss(init_adj, cur_adj)
         else:
             reco_loss = torch.zeros((1,)).to(self.device)
 
@@ -360,17 +360,22 @@ class TextGraph(nn.Module):
         pos_weight = (cur_adj.size(-1) * cur_adj.size(-1) - mean_adj_sum) / mean_adj_sum
         norm = (cur_adj.size(-1) * cur_adj.size(-1)) / (cur_adj.size(-1) * cur_adj.size(-1) - 2 * mean_adj_sum)
         pos_weight, norm = pos_weight.mean(), norm.mean()
-        cost = norm * F.binary_cross_entropy_with_logits(init_adj, cur_adj, pos_weight=pos_weight.detach())
+
+        # cost = norm * F.binary_cross_entropy_with_logits(init_adj, cur_adj, pos_weight=pos_weight.detach())
+        cost = norm * F.binary_cross_entropy(init_adj, cur_adj)
+
         return cost
 
     def forward(self, raw_context_vec, batch):
         # Prepare init node embedding, init adj
         context_len, mentions, bag_size = batch['sent_len'], batch['mentions'], batch['bag_size']
-        raw_context_vec, context_vec, context_mask, init_adj, enc_hidden, cell_state = self.prepare_init_graph(
+        raw_context_vec, context_vec, context_mask, enc_hidden, cell_state = self.prepare_init_graph(
             raw_context_vec, context_len)
 
         # add mention adj
-        init_adj += batch['m_adj']
+        init_adj = batch['m_adj']
+        init_adj += torch.eye(init_adj.size(-1), device=self.device)
+        init_adj = batch_normalize_adj(init_adj, context_mask)
 
         arg1, arg2 = self.merge_tokens(context_vec, mentions)  # contextualised representations of argument
         context_vec = context_vec + arg1.unsqueeze(dim=-2) + arg2.unsqueeze(dim=-2)
