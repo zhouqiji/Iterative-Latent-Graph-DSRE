@@ -160,22 +160,24 @@ class TextGraph(nn.Module):
         graph_embed = F.max_pool1d(node_vec, kernel_size=node_vec.size(-1)).squeeze(-1)
         return graph_embed
 
-    def compute_init_adj(self, features, knn_size, mask=None):
+    def compute_init_adj(self, features, knn_size, mask=None, m_adj=None):
 
         adj = get_binarized_kneighbors_graph(features, knn_size, mask=mask, device=self.device)
+
+        adj = adj + m_adj + torch.eye(m_adj.size(-1), device=self.device)
 
         adj_norm = batch_normalize_adj(adj, mask=mask)
         return adj_norm
 
-    def prepare_init_graph(self, context, context_lens):
+    def prepare_init_graph(self, context, context_lens, m_adj):
         context_mask = create_mask(context_lens, context.size(-2), device=self.device)
         raw_context_vec = context
 
         context_vec, (hidden, cell_state) = self.ctx_encoder(raw_context_vec, context_lens)
 
-        # init_adj = self.compute_init_adj(raw_context_vec.detach(), self.config['input_graph_knn_size'],
-        # mask = context_mask)
-        return raw_context_vec, context_vec, context_mask, hidden, cell_state
+        init_adj = self.compute_init_adj(raw_context_vec.detach(), self.config['input_graph_knn_size'],
+                                         mask=context_mask, m_adj=m_adj)
+        return raw_context_vec, context_vec, context_mask, hidden, cell_state, init_adj
 
     def merge_tokens(self, enc_seq, mentions):
         """
@@ -362,20 +364,15 @@ class TextGraph(nn.Module):
         pos_weight, norm = pos_weight.mean(), norm.mean()
 
         # cost = norm * F.binary_cross_entropy_with_logits(init_adj, cur_adj, pos_weight=pos_weight.detach())
-        cost = norm * F.binary_cross_entropy(init_adj, cur_adj)
-
+        cost = F.cross_entropy(init_adj, cur_adj)
         return cost
 
     def forward(self, raw_context_vec, batch):
         # Prepare init node embedding, init adj
         context_len, mentions, bag_size = batch['sent_len'], batch['mentions'], batch['bag_size']
-        raw_context_vec, context_vec, context_mask, enc_hidden, cell_state = self.prepare_init_graph(
-            raw_context_vec, context_len)
-
-        # add mention adj
-        init_adj = batch['m_adj']
-        init_adj += torch.eye(init_adj.size(-1), device=self.device)
-        init_adj = batch_normalize_adj(init_adj, context_mask)
+        mention_adj = batch['m_adj']
+        raw_context_vec, context_vec, context_mask, enc_hidden, cell_state, init_adj = self.prepare_init_graph(
+            raw_context_vec, context_len, mention_adj)
 
         arg1, arg2 = self.merge_tokens(context_vec, mentions)  # contextualised representations of argument
         context_vec = context_vec + arg1.unsqueeze(dim=-2) + arg2.unsqueeze(dim=-2)
@@ -388,6 +385,7 @@ class TextGraph(nn.Module):
         if self.config['reconstruction']:
             # Get the reconstruction adj
             init_adj, mu_, logvar_ = self.gvae(context_vec, init_adj, node_mask)
+
             node_num = init_adj.size(-1)
 
             init_adj = torch.nan_to_num(init_adj)
