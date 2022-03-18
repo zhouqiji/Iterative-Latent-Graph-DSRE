@@ -363,8 +363,7 @@ class TextGraph(nn.Module):
         norm = (cur_adj.size(-1) * cur_adj.size(-1)) / (cur_adj.size(-1) * cur_adj.size(-1) - 2 * mean_adj_sum)
         pos_weight, norm = pos_weight.mean(), norm.mean()
 
-        # cost = norm * F.binary_cross_entropy_with_logits(init_adj, cur_adj, pos_weight=pos_weight.detach())
-        cost = F.cross_entropy(init_adj, cur_adj)
+        cost = norm * F.binary_cross_entropy_with_logits(init_adj, cur_adj, pos_weight=pos_weight.detach())
         return cost
 
     def forward(self, raw_context_vec, batch):
