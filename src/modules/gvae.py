@@ -20,7 +20,7 @@ class GVAE(nn.Module):
         else:
             raise TypeError("The type of {} is not a valid GNN".format(gcn_type))
 
-        self.dc = InnerProductDecoder(dropout, act=lambda x:x)
+        self.dc = InnerProductDecoder(dropout)
 
     def encode(self, x, adj):
         hid1 = self.gc_emb(x, adj)
@@ -47,5 +47,4 @@ class InnerProductDecoder(nn.Module):
     def forward(self, z):
         z = F.dropout(z, self.dropout, training=self.training)
         adj = self.act(torch.bmm(z, z.transpose(-1, -2)))
-        adj = torch.clamp(adj, min=1e-7, max=1 - 1e-7)
         return adj
