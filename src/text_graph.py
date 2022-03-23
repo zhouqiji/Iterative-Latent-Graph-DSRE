@@ -4,7 +4,7 @@ import torch.nn.functional as F
 from torch.nn.utils.rnn import pad_sequence
 from modules.encoders_decoders import *
 from modules.attention import *
-
+from modules.embed import *
 from modules.gvae import GVAE
 from modules.gnn import GCN, SGC
 from modules.graphlearn import GraphLearner, get_binarized_kneighbors_graph
@@ -58,7 +58,15 @@ class TextGraph(nn.Module):
                                        device=self.device,
                                        action='sum')
 
-        self.linear_out = nn.Linear(self.graph_out_dim, self.output_rel_dim)
+        # TODO: Use selective attn
+        self.r_embed = EmbedLayer(num_embeddings=len(vocabs['r_vocab']),
+                                  embedding_dim=config['rel_embed_dim'])
+        self.sentence_attention = SelectiveAttention(device=self.device)
+        self.dim2rel = self.dim2rel = nn.Linear(in_features=config['rel_embed_dim'],
+                                                out_features=len(vocabs['r_vocab']))
+        self.dim2rel.weight = self.r_embed.embedding.weight  # tie weight
+
+        self.linear_out = nn.Linear(self.graph_out_dim, config['rel_embed_dim'])
         if self.config['reconstruction']:
             self.gvae = GVAE(config['enc_dim'], config['graph_hid_dim'], config['latent_dim'],
                              self.dropout,
@@ -134,8 +142,13 @@ class TextGraph(nn.Module):
         output = pad_sequence(torch.split(output, bag_size.tolist(), dim=0),
                               batch_first=True,
                               padding_value=0)
-        output = self.graph_maxpool(output.transpose(-1, -2))
+        # TODO: selective attn
+        # output = self.graph_maxpool(output.transpose(-1, -2))
         output = self.linear_out(output)
+        output = self.sentence_attention(output, bag_size, self.r_embed.embedding.weight.data)
+        output = torch.dropout(output, self.dropout, self.training)
+        output = self.dim2rel(output)
+        output = output.diagonal(dim1=1, dim2=2)
         return output
 
     def compute_hidden(self, output):
@@ -347,7 +360,7 @@ class TextGraph(nn.Module):
 
         # Recover loss
         if self.config['reconstruction']:
-            reco_loss = self.compute_reco_loss(init_adj, cur_adj)
+            reco_loss = self.compute_reco_loss(init_adj, cur_adj.detach())
         else:
             reco_loss = torch.zeros((1,)).to(self.device)
 
@@ -356,7 +369,6 @@ class TextGraph(nn.Module):
     def compute_reco_loss(self, init_adj, cur_adj):
 
         mean_adj_sum = cur_adj.sum(-1).sum(-1).mean()
-
         pos_weight = (cur_adj.size(-1) * cur_adj.size(-1) - mean_adj_sum) / mean_adj_sum
         norm = (cur_adj.size(-1) * cur_adj.size(-1)) / (cur_adj.size(-1) * cur_adj.size(-1) - 2 * mean_adj_sum)
 
@@ -369,9 +381,11 @@ class TextGraph(nn.Module):
         raw_context_vec, context_vec, context_mask, enc_hidden, cell_state, init_adj = self.prepare_init_graph(
             raw_context_vec, context_len)
 
-
         arg1, arg2 = self.merge_tokens(context_vec, mentions)  # contextualised representations of argument
         context_vec = context_vec + arg1.unsqueeze(dim=-2) + arg2.unsqueeze(dim=-2)
+
+        # add mention adj
+        init_adj = init_adj + batch_normalize_adj(batch['m_adj'], context_mask)
 
         # Init
         raw_node_vec = raw_context_vec  # word embedding

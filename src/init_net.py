@@ -35,5 +35,7 @@ class BaseNet(nn.Module):
 
         self.graph_encoder = TextGraph(config=config, vocabs=vocabs, num_rel=len(vocabs['r_vocab']))
 
+
+
         # task loss
         self.task_loss = nn.BCEWithLogitsLoss(reduction='none')
