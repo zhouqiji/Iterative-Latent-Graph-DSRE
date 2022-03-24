@@ -75,9 +75,9 @@ graph_learn_num_pers: 12 # weighted_cosine: IGL: 12! #TODO: Tuning
 graph_learn_hidden_size2: 70 # kernel: 90, attention: 70
 graph_learn_epsilon2: 0 # weighted_cosine: 0
 graph_learn_topk2: null # attn-GCN: 140: 64.1, kernel-GCN: 100
-graph_hops: 2
+graph_hops: 1
 graph_hid_dim: 128
-graph_out_dim: 128  # Tuning!
+graph_out_dim: 64  # Tuning!
 graph_learn_max_iter: 4
 eps_adj: 8e-3
 gl_dropout: 0.01
