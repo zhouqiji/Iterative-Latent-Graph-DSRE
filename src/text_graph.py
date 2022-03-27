@@ -58,7 +58,6 @@ class TextGraph(nn.Module):
                                        device=self.device,
                                        action='sum')
 
-        # TODO: Use selective attn
         self.r_embed = EmbedLayer(num_embeddings=len(vocabs['r_vocab']),
                                   embedding_dim=config['rel_embed_dim'])
         self.sentence_attention = SelectiveAttention(device=self.device)
@@ -72,6 +71,7 @@ class TextGraph(nn.Module):
                              self.dropout,
                              config['graph_hops'],
                              self.graph_module)
+            self.cosine_cost = nn.CosineSimilarity(dim=-1)
 
         if self.graph_module == 'gcn':
             gcn_module = GCN
@@ -144,8 +144,10 @@ class TextGraph(nn.Module):
                               padding_value=0)
         # TODO: selective attn
         # output = self.graph_maxpool(output.transpose(-1, -2))
-        # output = self.linear_out(output)
+        output = self.linear_out(output)
         output = self.sentence_attention(output, bag_size, self.r_embed.embedding.weight.data)
+        output = torch.relu(output)
+        output = torch.dropout(output, self.dropout, self.training)
         output = self.dim2rel(output)
         output = output.diagonal(dim1=1, dim2=2)
         return output
@@ -359,7 +361,10 @@ class TextGraph(nn.Module):
 
         # Recover loss
         if self.config['reconstruction']:
-            reco_loss = self.compute_reco_loss(init_adj, cur_adj.detach())
+            label_adj = cur_adj.detach().clone()
+            # label_adj[label_adj >= 0.5] = 1
+            # label_adj[label_adj < 0.5] = 0
+            reco_loss = self.compute_reco_loss(init_adj, label_adj)
         else:
             reco_loss = torch.zeros((1,)).to(self.device)
 
@@ -370,8 +375,10 @@ class TextGraph(nn.Module):
         mean_adj_sum = cur_adj.sum(-1).sum(-1).mean()
         pos_weight = (cur_adj.size(-1) * cur_adj.size(-1) - mean_adj_sum) / mean_adj_sum
         norm = (cur_adj.size(-1) * cur_adj.size(-1)) / (cur_adj.size(-1) * cur_adj.size(-1) - 2 * mean_adj_sum)
+        #
+        # cost = norm * F.binary_cross_entropy_with_logits(init_adj, cur_adj, pos_weight=pos_weight.detach())
+        cost = (1 - self.cosine_cost(init_adj, cur_adj)).sum(1).mean()
 
-        cost = norm * F.binary_cross_entropy_with_logits(init_adj, cur_adj, pos_weight=pos_weight.detach())
         return cost
 
     def forward(self, raw_context_vec, batch):
