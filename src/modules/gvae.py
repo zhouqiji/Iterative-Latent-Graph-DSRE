@@ -11,8 +11,8 @@ class GVAE(nn.Module):
 
         if gcn_type == 'gcn':
             self.gc_emb = GCN(input_dim, hid_dim1, hid_dim1, hops, dropout)
-            self.gc_mu = GCN(hid_dim1, hid_dim2, hid_dim2, hops, dropout)
-            self.gc_var = GCN(hid_dim1, hid_dim2, hid_dim2, hops, dropout)
+            self.gc_mu = GCN(hid_dim1, hid_dim1, hid_dim2, hops, dropout)
+            self.gc_var = GCN(hid_dim1, hid_dim1, hid_dim2, hops, dropout)
         elif gcn_type == 'sgc':
             self.gc_emb = SGC(input_dim, hid_dim1, hops, dropout)
             self.gc_mu = SGC(hid_dim1, hid_dim2, hops, dropout)
