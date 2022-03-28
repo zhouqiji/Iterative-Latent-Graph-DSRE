@@ -1,37 +1,45 @@
-import numpy as np
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on 03/03/2020
+
+author: fenia
+"""
+
+import re
+import math
 import torch
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, Sampler
+from torch.nn.utils.rnn import pad_sequence
+import random
 import json
+import heapq
 from tqdm import tqdm
+import numpy as np
 from .vocabs import *
 from collections import OrderedDict
-from transformers import BertTokenizer
 
 
 class BagREDataset(Dataset):
     """
-    Bag-level relation extraction dataset.
-    Relation of NA should be named as 'NA'.
+    Bag-level relation extraction dataset. Note that relation of NA should be named as 'NA'.
+    Code adapted from OpenNRE.
     """
-
-    def __init__(self, config, path, rel2id, word_vocab, priors, pos_vocab=None, max_sent_length=None, max_vocab=None,
-                 max_bag_size=0, mode='train'):
+    def __init__(self, path, rel2id, word_vocab, priors, pos_vocab=None, max_sent_length=None,
+                 max_vocab=None, max_bag_size=0, mode='train'):
         super().__init__()
 
-        self.rel_vocab = json.load(open(rel2id, 'r', encoding='UTF-8')) if rel2id else Relations()
+        self.rel_vocab = json.load(open(rel2id, 'r')) if rel2id else Relations()
         self.word_vocab = word_vocab if word_vocab else Words()
         self.pos_vocab = pos_vocab if pos_vocab else Positions()
 
-        self.max_bag_size = max_bag_size  # maximum bag size of the dataset
+        self.max_bag_size = max_bag_size  # maximum bag size
         self.max_sent_length = max_sent_length
         self.mode = mode
         self.max_vocab = max_vocab
         self.priors = priors
         if priors:
             self.priors_dim = len(self.priors[list(priors.keys())[-1]])
-
-        # Berttokenizer
-        self.config = config
 
         # Construct bag-level dataset (a bag contains instances sharing the same relation fact)
         self.data = []
@@ -41,7 +49,7 @@ class BagREDataset(Dataset):
         self.avg_s_len, self.instances = [], 0
 
         self.unique_sentences = OrderedDict()
-        with open(path, encoding='UTF-8') as infile:
+        with open(path) as infile:
             for item in tqdm(infile, desc='Loading ' + self.mode.upper()):
                 sample = json.loads(item)
 
@@ -68,7 +76,6 @@ class BagREDataset(Dataset):
                         e2_ = [e2[0]] * (e2[0]) + e2 + [e2[-1]] * (tokens_num - e2[-1] - 1)
 
                     assert len(e1_) == tokens_num and len(e2_) == tokens_num
-
                     pos1 = np.array(range(tokens_num), 'i') - np.array(e1_)
                     pos2 = np.array(range(tokens_num), 'i') - np.array(e2_)
 
@@ -81,17 +88,18 @@ class BagREDataset(Dataset):
         if self.mode == 'train':
             self.make_vocabs()
 
-        print('# instances:  {}\n# bags:        {}\n# relations:   {}'.format(self.instances, len(self.bag_scope),
-                                                                              len(self.rel_vocab)))
+        print("# instances:  {}\n# bags:       {}\n# relations:  {}".format(
+              self.instances, len(self.bag_scope), len(self.rel_vocab)))
 
         # Process data to tensors
         self.make_dataset()
         print()
-
+        
     def make_vocabs(self):
         """
         Construct vocabularies
         """
+        # make sure you add unique sentences, to avoid large freq of words due to duplicates
         for us in self.unique_sentences:
             self.word_vocab.add_sentence(us)
         print('Avg. sent length: {:.04}'.format(sum(self.avg_s_len) / len(self.avg_s_len)))
@@ -101,9 +109,8 @@ class BagREDataset(Dataset):
 
         tot_voc = len(self.word_vocab.word2id)
         if self.max_vocab:
-            print('Coverage:        {} %'.format(self.word_vocab.coverage(self.max_vocab)))
-            self.word_vocab.resize_vocab_maxsize(self.max_vocab)
-
+            print('Coverage:         {} %'.format(self.word_vocab.coverage(self.max_vocab)))
+            self.word_vocab.resize_vocab_maxsize(self.max_vocab)  # restrict vocab to certain length
         print('Total vocab size: {}/{}'.format(self.word_vocab.n_word, tot_voc))
 
     def make_dataset(self):
@@ -123,30 +130,28 @@ class BagREDataset(Dataset):
             for rel in bag_label:
                 labels[self.rel_vocab[rel]] = 1
 
-            bag_seqs, bag_seqs_target, pos1, pos2, sent_len, bag_mentions, attn_mask, token_ids = [], [], [], [], [], [], [], []
+            bag_seqs, bag_seqs_target, pos1, pos2, sent_len, bag_mentions = [], [], [], [], [], []
             for sentence, mentions in zip(bag_sents, bag_ent_offsets):
 
                 tmp = self.word_vocab.get_ids(sentence, replace=False)
                 if self.mode == 'train' or self.mode == 'train-test':
                     tmp = tmp[:self.max_sent_length]  # restrict to max_sent_length
+
                 tmp_source = [self.word_vocab.word2id[self.word_vocab.SOS]] + tmp  # add <SOS>
-                attention_mask = [0] * len(tmp_source)
-                token_type_ids = [0] * len(tmp_source)
+                tmp_target = tmp + [self.word_vocab.word2id[self.word_vocab.EOS]]  # add <EOS>
 
                 bag_seqs += [torch.tensor(tmp_source).long()]
+                bag_seqs_target += [torch.tensor(tmp_target).long()]
 
-                attn_mask += [attention_mask]
-                token_ids += [token_type_ids]
                 sent_len += [len(tmp_source)]
-
                 bag_mentions += [[mentions['m1'][0] + 1, mentions['m1'][-1] + 1,
                                   mentions['m2'][0] + 1, mentions['m2'][-1] + 1]]
 
                 # Do not forget the additional <PAD> for <SOS>
                 pos1_ = [self.pos_vocab.pos2id[self.pos_vocab.PAD]] + \
-                        self.pos_vocab.get_ids(mentions['pos1'], self.max_sent_length)
+                         self.pos_vocab.get_ids(mentions['pos1'], self.max_sent_length)
                 pos2_ = [self.pos_vocab.pos2id[self.pos_vocab.PAD]] + \
-                        self.pos_vocab.get_ids(mentions['pos2'], self.max_sent_length)
+                         self.pos_vocab.get_ids(mentions['pos2'], self.max_sent_length)
 
                 if self.mode == 'train' or self.mode == 'train-test':
                     pos1 += [torch.tensor(pos1_[:self.max_sent_length + 1]).long()]
@@ -159,8 +164,7 @@ class BagREDataset(Dataset):
                 if pair_name in self.priors:
                     priors = np.asarray(self.priors[pair_name])
                     self.data.append([labels, pair_name + ' ### ' + bag_label[0], len(bag_sents), bag_ent_offsets,
-                                      bag_seqs, bag_seqs_target, pos1, pos2, sent_len, bag_mentions, priors,
-                                      ])
+                                      bag_seqs, bag_seqs_target, pos1, pos2, sent_len, bag_mentions, priors])
                 else:
                     priors = np.zeros((self.priors_dim,))
                     # if self.mode == 'train' or self.mode == 'train-test':
@@ -168,8 +172,7 @@ class BagREDataset(Dataset):
                     #     continue
                     # else:
                     self.data.append([labels, pair_name + ' ### ' + bag_label[0], len(bag_sents), bag_ent_offsets,
-                                      bag_seqs, bag_seqs_target, pos1, pos2, sent_len, bag_mentions, priors,
-                                      ])
+                                      bag_seqs, bag_seqs_target, pos1, pos2, sent_len, bag_mentions, priors])
             else:
                 priors = None
                 self.data.append([labels, pair_name + ' ### ' + bag_label[0], len(bag_sents), bag_ent_offsets,
@@ -180,6 +183,6 @@ class BagREDataset(Dataset):
     def __len__(self):
         return len(self.data)
 
-    def __getitem__(self, item):
-        return_list = self.data[item]
+    def __getitem__(self, index):
+        return_list = self.data[index]
         return return_list

@@ -27,7 +27,7 @@ def load_priors(file):
 
 
 def load_data(word_vocab, prior_mus, config, pos_vocab=None, mode='train'):
-    train_data_ = BagREDataset(config,
+    train_data_ = BagREDataset(
                                config['train_data'],
                                config['relations_file'],
                                word_vocab,
@@ -42,7 +42,7 @@ def load_data(word_vocab, prior_mus, config, pos_vocab=None, mode='train'):
                                shuffle=True,
                                collate_fn=BagCollates(),
                                num_workers=0)
-    val_data_ = BagREDataset(config,
+    val_data_ = BagREDataset(
                              config['val_data'],
                              config['relations_file'],
                              train_data_.word_vocab if mode == 'train' else word_vocab,
@@ -57,7 +57,7 @@ def load_data(word_vocab, prior_mus, config, pos_vocab=None, mode='train'):
                              collate_fn=BagCollates(),
                              num_workers=0)
 
-    test_data_ = BagREDataset(config,
+    test_data_ = BagREDataset(
                               config['test_data'],
                               config['relations_file'],
                               train_data_.word_vocab if mode == 'train' else word_vocab,
