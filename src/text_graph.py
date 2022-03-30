@@ -65,12 +65,8 @@ class TextGraph(nn.Module):
                                                 out_features=len(vocabs['r_vocab']))
         self.dim2rel.weight = self.r_embed.embedding.weight  # tie weight
 
-
-        #TODO: test conv1d
-        self.conv1 = nn.Conv1d(config['max_sent_len']+1, 1, 1)
-
-        self.linear_out = nn.Linear(self.graph_out_dim, self.output_rel_dim)
-        # self.linear_out = nn.Linear(self.graph_out_dim, config['rel_embed_dim'])
+        # self.linear_out = nn.Linear(self.graph_out_dim, self.output_rel_dim)
+        self.linear_out = nn.Linear(self.graph_out_dim, config['rel_embed_dim'])
 
         if self.config['reconstruction']:
             self.gvae = GVAE(config['enc_dim'], config['graph_hid_dim'], config['latent_dim'],
@@ -144,22 +140,19 @@ class TextGraph(nn.Module):
 
     def compute_output(self, output_vec, bag_size, node_mask=None):
 
-        output = self.conv1(output_vec).squeeze()
-        output = torch.dropout(output, self.dropout, self.training)
-
-        # output = self.graph_maxpool(output_vec.transpose(-1, -2))
+        output = self.graph_maxpool(output_vec.transpose(-1, -2))
         output = pad_sequence(torch.split(output, bag_size.tolist(), dim=0),
                               batch_first=True,
                               padding_value=0)
 
-
-        output = self.graph_maxpool(output.transpose(-1, -2))
+        # output = self.graph_maxpool(output.transpose(-1, -2))
         output = self.linear_out(output)
-        # output = self.sentence_attention(output, bag_size, self.r_embed.embedding.weight.data)
-        # output = torch.relu(output)
+        output = torch.relu(output)
+        output = torch.dropout(output, self.dropout, self.training)
+        output = self.sentence_attention(output, bag_size, self.r_embed.embedding.weight.data)
         # output = torch.dropout(output, self.dropout, self.training)
-        # output = self.dim2rel(output)
-        # output = output.diagonal(dim1=1, dim2=2)
+        output = self.dim2rel(output)
+        output = output.diagonal(dim1=1, dim2=2)
         return output
 
     def compute_hidden(self, output):
@@ -371,9 +364,9 @@ class TextGraph(nn.Module):
 
         # Recover loss
         if self.config['reconstruction']:
-            label_adj = cur_adj.detach()
-            # label_adj[label_adj >= 0.5] = 1
-            # label_adj[label_adj < 0.5] = 0
+            label_adj = cur_adj.detach().clone()
+            label_adj[label_adj >= 0.5] = 1
+            label_adj[label_adj <= 0.5] = 0
             reco_loss = self.compute_reco_loss(init_adj, label_adj)
         else:
             reco_loss = torch.zeros((1,)).to(self.device)
@@ -387,7 +380,8 @@ class TextGraph(nn.Module):
         norm = (cur_adj.size(-1) * cur_adj.size(-1)) / (cur_adj.size(-1) * cur_adj.size(-1) - 2 * mean_adj_sum)
         #
         cost = norm * F.binary_cross_entropy_with_logits(init_adj, cur_adj, pos_weight=pos_weight.detach())
-        # cost = norm * (1 - self.cosine_cost(init_adj, cur_adj)).sum(1).mean()
+        # cost = F.binary_cross_entropy_with_logits(init_adj, cur_adj)
+        # cost = (1 - self.cosine_cost(init_adj, cur_adj)).sum(1).mean()
 
         return cost
 
@@ -401,7 +395,7 @@ class TextGraph(nn.Module):
         context_vec = context_vec + arg1.unsqueeze(dim=-2) + arg2.unsqueeze(dim=-2)
 
         # add mention adj
-        init_adj = init_adj + batch_normalize_adj(batch['m_adj'], context_mask)
+        # init_adj = init_adj + batch_normalize_adj(batch['m_adj'], context_mask)
 
         # Init
         raw_node_vec = raw_context_vec  # word embedding
@@ -415,6 +409,8 @@ class TextGraph(nn.Module):
             node_num = init_adj.size(-1)
 
             init_adj = torch.nan_to_num(init_adj)
+            # init_adj = init_adj.masked_fill_(~node_mask.bool().unsqueeze(-1), 0)
+            # init_adj = init_adj.masked_fill_(~node_mask.bool().unsqueeze(-2), 0)
             if self.config['priors']:
                 prior_mus_expanded = torch.repeat_interleave(batch['prior_mus'],
                                                              repeats=batch['bag_size'], dim=0)

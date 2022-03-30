@@ -35,7 +35,7 @@ class GVAE(nn.Module):
         mu, log_var = self.encode(x, adj)
         z = self.re_parameterize(mu, log_var)
         z = z.masked_fill_(~node_mask.bool().unsqueeze(-1), 0)
-        return self.dc(z), mu, log_var
+        return self.dc(z, node_mask), mu, log_var
 
 
 class InnerProductDecoder(nn.Module):
@@ -44,7 +44,10 @@ class InnerProductDecoder(nn.Module):
         self.dropout = dropout
         self.act = act
 
-    def forward(self, z):
+    def forward(self, z, node_mask):
         z = F.dropout(z, self.dropout, training=self.training)
         adj = self.act(torch.bmm(z, z.transpose(-1, -2)))
+        adj = torch.nan_to_num(adj)
+        adj = torch.where(torch.isinf(adj), torch.full_like(adj, 0), adj)
+
         return adj

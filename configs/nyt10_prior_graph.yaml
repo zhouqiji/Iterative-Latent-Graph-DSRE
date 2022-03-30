@@ -33,7 +33,7 @@ dec_bidirectional: False
 input_dropout: 0.3
 output_dropout: 0.3
 teacher_force: 0.0
-lr: 0.0001
+lr: 0.0005
 weight_decay: 0.000001
 clip: 10
 max_vocab_size: 40000
@@ -54,7 +54,7 @@ freeze_pretrained: False
 # Iterative Graph config
 graph_dropout: 0.5
 bignn: False
-graph_module: 'gcn'  # gcn or sgc
+graph_module: 'sgc'  # gcn or sgc
 graph_type: 'dynamic'
 graph_learn: True
 graph_batch_norm: True
