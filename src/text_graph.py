@@ -364,9 +364,9 @@ class TextGraph(nn.Module):
 
         # Recover loss
         if self.config['reconstruction']:
-            label_adj = cur_adj.detach().clone()
-            label_adj[label_adj >= 0.5] = 1
-            label_adj[label_adj <= 0.5] = 0
+            label_adj = cur_adj.detach()
+            # label_adj[label_adj >= 0.5] = 1.0
+            # label_adj[label_adj <= 0.5] = 0.0
             reco_loss = self.compute_reco_loss(init_adj, label_adj)
         else:
             reco_loss = torch.zeros((1,)).to(self.device)
@@ -379,8 +379,9 @@ class TextGraph(nn.Module):
         pos_weight = (cur_adj.size(-1) * cur_adj.size(-1) - mean_adj_sum) / mean_adj_sum
         norm = (cur_adj.size(-1) * cur_adj.size(-1)) / (cur_adj.size(-1) * cur_adj.size(-1) - 2 * mean_adj_sum)
         #
-        cost = norm * F.binary_cross_entropy_with_logits(init_adj, cur_adj, pos_weight=pos_weight.detach())
-        # cost = F.binary_cross_entropy_with_logits(init_adj, cur_adj)
+        # cost = F.binary_cross_entropy_with_logits(init_adj, cur_adj, pos_weight=pos_weight.detach())
+        cost = F.binary_cross_entropy(init_adj, cur_adj) / cur_adj.size(0)
+
         # cost = (1 - self.cosine_cost(init_adj, cur_adj)).sum(1).mean()
 
         return cost
