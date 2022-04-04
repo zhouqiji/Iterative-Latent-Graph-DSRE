@@ -65,8 +65,9 @@ class TextGraph(nn.Module):
                                                 out_features=len(vocabs['r_vocab']))
         self.dim2rel.weight = self.r_embed.embedding.weight  # tie weight
 
-        # self.linear_out = nn.Linear(self.graph_out_dim, self.output_rel_dim)
-        self.linear_out = nn.Linear(self.graph_out_dim, config['rel_embed_dim'])
+        self.linear_hidden = nn.Linear(config['graph_out_dim'], config['graph_out_dim'])
+        self.linear_out = nn.Linear(self.graph_out_dim, self.output_rel_dim)
+        # self.linear_out = nn.Linear(self.graph_out_dim, config['rel_embed_dim'])
 
         if self.config['reconstruction']:
             self.gvae = GVAE(config['enc_dim'], config['graph_hid_dim'], config['latent_dim'],
@@ -140,19 +141,22 @@ class TextGraph(nn.Module):
 
     def compute_output(self, output_vec, bag_size, node_mask=None):
 
-        output = self.graph_maxpool(output_vec.transpose(-1, -2))
+        # output = self.graph_maxpool(output_vec.transpose(-1, -2))
+        output = self.linear_hidden(output_vec.sum(-2))
+        output = torch.dropout(torch.relu(output), self.dropout, self.training)
         output = pad_sequence(torch.split(output, bag_size.tolist(), dim=0),
                               batch_first=True,
                               padding_value=0)
 
-        # output = self.graph_maxpool(output.transpose(-1, -2))
+        output = self.graph_maxpool(output.transpose(-1, -2))
+
         output = self.linear_out(output)
-        output = torch.relu(output)
-        output = torch.dropout(output, self.dropout, self.training)
-        output = self.sentence_attention(output, bag_size, self.r_embed.embedding.weight.data)
+        # output = torch.relu(output)
         # output = torch.dropout(output, self.dropout, self.training)
-        output = self.dim2rel(output)
-        output = output.diagonal(dim1=1, dim2=2)
+        # output = self.sentence_attention(output, bag_size, self.r_embed.embedding.weight.data)
+        # output = torch.dropout(output, self.dropout, self.training)
+        # output = self.dim2rel(output)
+        # output = output.diagonal(dim1=1, dim2=2)
         return output
 
     def compute_hidden(self, output):
