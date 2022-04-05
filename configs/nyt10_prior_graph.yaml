@@ -18,7 +18,7 @@ batch_size: 32
 epochs: 100
 bag_size: 500
 word_embed_dim: 50
-rel_embed_dim: 256     #TODO tuning
+rel_embed_dim: 128     #TODO tuning
 pos_embed_dim: 8    # Tuning
 latent_dim: 64     # same as prior
 max_sent_len: 50
@@ -33,7 +33,7 @@ dec_bidirectional: False
 input_dropout: 0.3
 output_dropout: 0.3
 teacher_force: 0.0
-lr: 0.0001
+lr: 0.0005
 weight_decay: 0.000001
 clip: 10
 max_vocab_size: 40000
