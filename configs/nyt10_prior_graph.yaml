@@ -18,7 +18,7 @@ batch_size: 32
 epochs: 100
 bag_size: 500
 word_embed_dim: 50
-rel_embed_dim: 128     #TODO tuning
+rel_embed_dim: 256     #TODO tuning
 pos_embed_dim: 8    # Tuning
 latent_dim: 64     # same as prior
 max_sent_len: 50
@@ -76,8 +76,8 @@ graph_learn_hidden_size2: 70 # kernel: 90, attention: 70
 graph_learn_epsilon2: 0 # weighted_cosine: 0
 graph_learn_topk2: null # attn-GCN: 140: 64.1, kernel-GCN: 100
 graph_hops: 2
-graph_hid_dim: 128
-graph_out_dim: 128   #TODO Tuning!
+graph_hid_dim: 256
+graph_out_dim: 256   #TODO Tuning!
 graph_learn_max_iter: 4
 eps_adj: 8e-3
 gl_dropout: 0.01

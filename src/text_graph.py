@@ -65,7 +65,8 @@ class TextGraph(nn.Module):
                                                 out_features=len(vocabs['r_vocab']))
         self.dim2rel.weight = self.r_embed.embedding.weight  # tie weight
 
-        self.linear_hidden = nn.Linear(config['graph_out_dim'], config['graph_out_dim'])
+        #TODO test hard core dim
+        self.linear_hidden = nn.Linear(self.graph_out_dim, self.graph_out_dim)
         self.linear_out = nn.Linear(self.graph_out_dim, self.output_rel_dim)
         # self.linear_out = nn.Linear(self.graph_out_dim, config['rel_embed_dim'])
 
@@ -151,9 +152,9 @@ class TextGraph(nn.Module):
         output = self.linear_hidden(output)
         output = torch.relu(output)
         output = torch.dropout(output, self.dropout, self.training)
-
+        #
         output = self.linear_out(output)
-        output = F.logsigmoid(output)
+        # output = F.log_softmax(output, dim=-1)
         # output = torch.relu(output)
         # output = torch.dropout(output, self.dropout, self.training)
         # output = self.sentence_attention(output, bag_size, self.r_embed.embedding.weight.data)
