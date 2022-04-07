@@ -65,7 +65,7 @@ class TextGraph(nn.Module):
                                                 out_features=len(vocabs['r_vocab']))
         self.dim2rel.weight = self.r_embed.embedding.weight  # tie weight
 
-        #TODO test hard core dim
+        # TODO test hard core dim
         self.linear_hidden = nn.Linear(self.graph_out_dim, self.graph_out_dim)
         self.linear_out = nn.Linear(self.graph_out_dim, self.output_rel_dim)
         # self.linear_out = nn.Linear(self.graph_out_dim, config['rel_embed_dim'])
@@ -147,8 +147,7 @@ class TextGraph(nn.Module):
                               batch_first=True,
                               padding_value=0)
 
-        # output = self.graph_maxpool(output.transpose(-1, -2))
-        output = output.sum(-2)
+        output = self.graph_maxpool(output.transpose(-1, -2))
         output = self.linear_hidden(output)
         output = torch.relu(output)
         output = torch.dropout(output, self.dropout, self.training)
@@ -390,8 +389,6 @@ class TextGraph(nn.Module):
         # cost = F.binary_cross_entropy_with_logits(init_adj, cur_adj, pos_weight=pos_weight.detach())
         cost = F.binary_cross_entropy(init_adj, cur_adj) / cur_adj.size(0)
 
-        # cost = (1 - self.cosine_cost(init_adj, cur_adj)).sum(1).mean()
-
         return cost
 
     def forward(self, raw_context_vec, batch):
@@ -423,8 +420,11 @@ class TextGraph(nn.Module):
             if self.config['priors']:
                 prior_mus_expanded = torch.repeat_interleave(batch['prior_mus'],
                                                              repeats=batch['bag_size'], dim=0)
-
+                # mask
+                mu_ = mu_.masked_fill_(~node_mask.bool().unsqueeze(-1), 0)
+                logvar_ = logvar_.masked_fill_(~node_mask.bool().unsqueeze(-1), 0)
                 mu_, logvar_ = mu_.sum(-2), logvar_.sum(-2)
+
                 mu_diff = (prior_mus_expanded - mu_)
                 kld = (-0.5 * torch.mean(torch.sum(
                     1 + 2 * logvar_ - mu_diff.pow(2) - logvar_.exp().pow(2), -1
