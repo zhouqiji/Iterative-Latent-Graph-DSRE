@@ -66,7 +66,7 @@ class TextGraph(nn.Module):
         self.dim2rel.weight = self.r_embed.embedding.weight  # tie weight
 
         # TODO test hard core dim
-        self.linear_hidden = nn.Linear(self.graph_out_dim, self.graph_out_dim)
+        # self.linear_hidden = nn.Linear(self.graph_out_dim, self.graph_out_dim)
         # self.linear_out = nn.Linear(self.graph_out_dim, self.output_rel_dim)
         self.linear_out = nn.Linear(self.graph_out_dim, config['rel_embed_dim'])
 
@@ -155,10 +155,9 @@ class TextGraph(nn.Module):
 
         #
         output = self.linear_out(output)
-        # output = torch.relu(output)
-        # output = torch.dropout(output, self.dropout, self.training)
-        output = self.sentence_attention(output, bag_size, self.r_embed.embedding.weight.data)
+        output = torch.relu(output)
         output = torch.dropout(output, self.dropout, self.training)
+        output = self.sentence_attention(output, bag_size, self.r_embed.embedding.weight.data)
         output = self.dim2rel(output)
         output = output.diagonal(dim1=1, dim2=2)
         return output
@@ -422,8 +421,8 @@ class TextGraph(nn.Module):
                 prior_mus_expanded = torch.repeat_interleave(batch['prior_mus'],
                                                              repeats=batch['bag_size'], dim=0)
                 # mask
-                mu_ = mu_.masked_fill_(~node_mask.bool().unsqueeze(-1), 0)
-                logvar_ = logvar_.masked_fill_(~node_mask.bool().unsqueeze(-1), 0)
+                mu_ = mu_.masked_fill(~node_mask.bool().unsqueeze(-1), 0)
+                logvar_ = logvar_.masked_fill(~node_mask.bool().unsqueeze(-1), 0)
                 mu_, logvar_ = mu_.sum(-2), logvar_.sum(-2)
 
                 mu_diff = (prior_mus_expanded - mu_)
