@@ -66,7 +66,7 @@ class TextGraph(nn.Module):
         self.dim2rel.weight = self.r_embed.embedding.weight  # tie weight
 
         # TODO test hard core dim
-        # self.linear_hidden = nn.Linear(self.graph_out_dim, self.graph_out_dim)
+        self.linear_hidden = nn.Linear(self.graph_out_dim, self.graph_out_dim)
         # self.linear_out = nn.Linear(self.graph_out_dim, self.output_rel_dim)
         self.linear_out = nn.Linear(self.graph_out_dim, config['rel_embed_dim'])
 
@@ -143,9 +143,9 @@ class TextGraph(nn.Module):
     def compute_output(self, output_vec, bag_size, node_mask=None):
 
         output = self.graph_maxpool(output_vec.transpose(-1, -2))
-        # output = self.linear_hidden(output)
-        # output = torch.relu(output)
-        # output = torch.dropout(output, self.dropout, self.training)
+        output = self.linear_hidden(output)
+        output = torch.relu(output)
+        output = torch.dropout(output, self.dropout, self.training)
         output = pad_sequence(torch.split(output, bag_size.tolist(), dim=0),
                               batch_first=True,
                               padding_value=0)

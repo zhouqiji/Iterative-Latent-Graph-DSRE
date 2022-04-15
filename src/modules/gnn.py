@@ -97,7 +97,8 @@ class GCNLayer(nn.Module):
 
         if self.bn is not None and batch_norm:
             output = self.compute_bn(output)
-        return torch.relu(output)
+        output = torch.clamp(output, 1e-7, 1-1e-7)
+        return output
 
     def compute_bn(self, x):
         if len(x.shape) == 2:
@@ -144,7 +145,10 @@ class SGC(nn.Module):
         super(SGC, self).__init__()
         self.degree = degree
         self.W = nn.Linear(nfeat, nclass)
+        self.ln = nn.LayerNorm(nclass)
+        self.gelu = nn.GELU()
 
     def forward(self, x, adj):
         x = sgc_precompute(x, adj, self.degree)
-        return self.W(x)
+        x = self.W(x)
+        return self.gelu(x)

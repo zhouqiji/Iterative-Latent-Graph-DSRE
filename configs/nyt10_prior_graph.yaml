@@ -33,7 +33,7 @@ dec_bidirectional: False
 input_dropout: 0.3
 output_dropout: 0.3
 teacher_force: 0.0
-lr: 0.0005
+lr: 0.0001
 weight_decay: 0.000001
 clip: 10
 max_vocab_size: 40000
@@ -54,7 +54,7 @@ freeze_pretrained: False
 # Iterative Graph config
 graph_dropout: 0.5
 bignn: False
-graph_module: 'gcn'  # gcn or sgc
+graph_module: 'sgc'  # gcn or sgc
 graph_type: 'dynamic'
 graph_learn: True
 graph_batch_norm: True
@@ -76,8 +76,8 @@ graph_learn_hidden_size2: 70 # kernel: 90, attention: 70
 graph_learn_epsilon2: 0 # weighted_cosine: 0
 graph_learn_topk2: null # attn-GCN: 140: 64.1, kernel-GCN: 100
 graph_hops: 2
-graph_hid_dim: 128
-graph_out_dim: 128   #TODO Tuning!
+graph_hid_dim: 256
+graph_out_dim: 256   #TODO Tuning!
 graph_learn_max_iter: 4
 eps_adj: 8e-3
 gl_dropout: 0.01
