@@ -120,6 +120,8 @@ class GCN(nn.Module):
 
         self.graph_encoders.append(GCNLayer(nhid, nclass, batch_norm=False))
 
+        self.gelu = nn.GELU()
+
     def forward(self, x, node_anchor_adj):
         for i, encoder in enumerate(self.graph_encoders[:-1]):
             x = F.relu(encoder(x, node_anchor_adj))

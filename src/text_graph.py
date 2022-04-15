@@ -440,6 +440,9 @@ class TextGraph(nn.Module):
             mu_ = torch.zeros((enc_hidden.size(0), self.config['latent_dim'])).to(self.device)
             kld = torch.zeros((1,)).to(self.device)
 
+        init_adj = init_adj.masked_fill_(~node_mask.bool().unsqueeze(1), 0)
+        init_adj = init_adj.masked_fill_(~node_mask.bool().unsqueeze(-1), 0)
+
         cur_raw_adj, cur_adj = self.learn_graph(self.graph_learner, raw_node_vec, self.graph_skip_conn,
                                                 node_mask=node_mask, graph_include_self=self.graph_include_self,
                                                 init_adj=init_adj)
