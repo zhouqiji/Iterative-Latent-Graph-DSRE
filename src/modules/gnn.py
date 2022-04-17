@@ -147,10 +147,8 @@ class SGC(nn.Module):
         super(SGC, self).__init__()
         self.degree = degree
         self.W = nn.Linear(nfeat, nclass)
-        self.ln = nn.LayerNorm(nclass)
-        self.gelu = nn.GELU()
 
     def forward(self, x, adj):
         x = sgc_precompute(x, adj, self.degree)
         x = self.W(x)
-        return self.gelu(x)
+        return x
