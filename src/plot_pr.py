@@ -69,9 +69,9 @@ def plot_pr(dataset):
         elif name == 'reside':
             name = 'RESIDE'
         elif name == 'intra-inter':
-            name = 'Intra-Inter'
+            name = 'INTRA-INTER'
         elif name == 'recon-sent':
-            name = 'Recon-Sent'
+            name = 'RECON-SENT'
 
         plt.plot(rec, prec, label=name, lw=1, marker=marker[i], color=color[i], markevery=0.2, ms=6)
 
