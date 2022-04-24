@@ -21,9 +21,9 @@ def plot_pr(dataset):
         color = ['#797979', '#dc7ec0', '#d5bb67', '#6acc64', '#ee854a', '#d65f5f']
         marker = ['d', 's', '^', '*', 'v', 'o']
     elif dataset == 'nyt10_570k':
-        names = ['pcnnatt', 'reside', 'intra-inter', 'distre', 'recon-sent', 'ours']
-        color = ['#797979', '#dc7ec0', '#d5bb67', '#6acc64', '#ee854a', '#d65f5f']
-        marker = ['d', 's', '^', '*', 'v', 'o']
+        names = ['pcnnatt', 'reside', 'intra-inter',  'recon-sent', 'ours']
+        color = ['#797979', '#dc7ec0', '#d5bb67', '#ee854a', '#d65f5f']
+        marker = ['d', 's', '^', 'v', 'o']
     else:
         names = ['pcnnatt', 'reside', 'intra-inter', 'distre', 'recon-sent', 'ours']
         color = ['#797979', '#dc7ec0', '#d5bb67', '#6acc64', '#ee854a', '#d65f5f']
