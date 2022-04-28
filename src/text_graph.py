@@ -65,8 +65,7 @@ class TextGraph(nn.Module):
                                                 out_features=len(vocabs['r_vocab']))
         self.dim2rel.weight = self.r_embed.embedding.weight  # tie weight
 
-        # TODO: remove hard-core embedding
-        self.linear_hidden = nn.Linear(self.graph_out_dim, self.graph_out_dim)
+        # self.linear_hidden = nn.Linear(self.graph_out_dim, self.graph_out_dim)
         # self.linear_out = nn.Linear(self.graph_out_dim, self.output_rel_dim)
         self.linear_out = nn.Linear(self.graph_out_dim, config['rel_embed_dim'])
 
@@ -155,7 +154,7 @@ class TextGraph(nn.Module):
         output = torch.relu(output)
         output = torch.dropout(output, self.dropout, self.training)
         output = self.sentence_attention(output, bag_size, self.r_embed.embedding.weight.data)
-        # output = torch.dropout(output, self.dropout, self.training)
+        output = torch.dropout(output, self.dropout, self.training)
         output = self.dim2rel(output)
         output = output.diagonal(dim1=1, dim2=2)
         return output
@@ -385,8 +384,8 @@ class TextGraph(nn.Module):
         norm = (cur_adj.size(-1) * cur_adj.size(-1)) / (cur_adj.size(-1) * cur_adj.size(-1) - 2 * mean_adj_sum)
         #
         # cost = F.binary_cross_entropy_with_logits(init_adj, cur_adj, pos_weight=pos_weight.detach())
-        cost = F.binary_cross_entropy(init_adj, cur_adj) / cur_adj.size(0)
-
+        # cost = F.binary_cross_entropy(init_adj, cur_adj) / cur_adj.size(0)
+        cost = F.binary_cross_entropy(init_adj, cur_adj)
         return cost
 
     def forward(self, raw_context_vec, batch):
@@ -398,8 +397,7 @@ class TextGraph(nn.Module):
         arg1, arg2 = self.merge_tokens(context_vec, mentions)  # contextualised representations of argument
         context_vec = context_vec + arg1.unsqueeze(dim=-2) + arg2.unsqueeze(dim=-2)
 
-        # add mention adj
-        # init_adj = init_adj + batch_normalize_adj(batch['m_adj'], context_mask)
+        save_init_adj = init_adj
 
         # Init
         raw_node_vec = raw_context_vec  # word embedding
@@ -426,6 +424,8 @@ class TextGraph(nn.Module):
                     1 + 2 * logvar_ - mu_diff.pow(2) - logvar_.exp().pow(2), -1
                 ))) / node_num
             else:
+                mu_ = mu_.masked_fill(~node_mask.bool().unsqueeze(-1), 0)
+                logvar_ = logvar_.masked_fill(~node_mask.bool().unsqueeze(-1), 0)
 
                 mu_, logvar_ = mu_.sum(-2), logvar_.sum(-2)
 
@@ -436,6 +436,7 @@ class TextGraph(nn.Module):
             mu_ = torch.zeros((enc_hidden.size(0), self.config['latent_dim'])).to(self.device)
             kld = torch.zeros((1,)).to(self.device)
 
+        save_reco_adj = init_adj
         cur_raw_adj, cur_adj = self.learn_graph(self.graph_learner, raw_node_vec, self.graph_skip_conn,
                                                 node_mask=node_mask, graph_include_self=self.graph_include_self,
                                                 init_adj=init_adj)
@@ -462,4 +463,4 @@ class TextGraph(nn.Module):
         graph_features = (init_adj, cur_raw_adj, cur_adj, raw_node_vec, init_node_vec, output_node,
                           node_mask, batch['sent_len'])
 
-        return output, graph_features, rec_features
+        return output, graph_features, rec_features, (save_init_adj, save_reco_adj)

@@ -36,7 +36,7 @@ class GraphNet(BaseNet):
         ##########################
         # Graph Encoder
         ##########################
-        graph_out, graph_features, reco_features = self.graph_encoder(x_vec, batch)
+        graph_out, graph_features, reco_features, save_latent_graph = self.graph_encoder(x_vec, batch)
 
         kld, mu_ = reco_features
         kld = torch.where(torch.isinf(kld), torch.full_like(kld, 1), kld)
@@ -49,10 +49,14 @@ class GraphNet(BaseNet):
             batch['rel'],
             self.calc_task_loss)
 
+        saved_init_adj, saved_reco_adj = save_latent_graph
+        saved_graphs = (saved_init_adj, saved_reco_adj, cur_adj)
+
+
         if tmp_rel_probs is not None:
             rel_probs = tmp_rel_probs
         else:
             rel_probs = task_rel_probs
 
         assert torch.sum(torch.isnan(rel_probs)) == 0.0
-        return total_loss+task_loss, graph_loss, rel_probs, kld, reco_loss, mu_
+        return total_loss+task_loss, graph_loss, rel_probs, kld, reco_loss, mu_, saved_graphs

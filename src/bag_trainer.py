@@ -146,14 +146,14 @@ class Trainer(BaseTrainer):
             tracker['total_sents'] += torch.sum(batch['bag_size'], dim=0).item()
 
             for keys in batch.keys():
-                if keys != 'bag_names':
+                if keys != 'bag_names' and keys != 'txt':
                     batch[keys] = batch[keys].to(self.device)
 
             if self.config['show_example']:
                 self.show_example(batch)
 
             self.model.zero_grad()
-            task_loss, graph_loss, rel_probs, kld, rec_loss, mu_ = self.model(batch)  # forward pass
+            task_loss, graph_loss, rel_probs, kld, rec_loss, mu_, _ = self.model(batch)  # forward pass
 
             if self.config['reconstruction']:
                 loss = (self.config['task_weight'] * task_loss) + \
@@ -205,10 +205,10 @@ class Trainer(BaseTrainer):
                 tracker['total_sents'] += torch.sum(batch['bag_size'], dim=0).item()
 
                 for keys in batch.keys():
-                    if keys != 'bag_names':
+                    if keys != 'bag_names' and keys != 'txt':
                         batch[keys] = batch[keys].to(self.device)
 
-                task_loss, graph_loss, rel_probs, kld, rec_loss, mu_ = self.model(batch)  # forward pass
+                task_loss, graph_loss, rel_probs, kld, rec_loss, mu_, _ = self.model(batch)  # forward pass
 
                 if self.config['reconstruction']:
                     loss = self.config['task_weight'] * task_loss + (1 - self.config['task_weight']) * (
@@ -240,10 +240,10 @@ class Trainer(BaseTrainer):
             for batch_idx, batch in enumerate(self.iterators[mode]):
 
                 for keys in batch.keys():
-                    if keys != 'bag_names':
+                    if keys != 'bag_names' and keys != 'txt':
                         batch[keys] = batch[keys].to(self.device)
 
-                task_loss, graph_loss, rel_probs, kld, rec_loss, latent_z  = self.model(batch)  # forward pass
+                task_loss, graph_loss, rel_probs, kld, rec_loss, latent_z, _ = self.model(batch)  # forward pass
 
                 zs_split = torch.split(latent_z, batch['bag_size'].tolist(), dim=0)
                 for z_bag, name in zip(zs_split, batch['bag_names']):

@@ -158,16 +158,21 @@ def main(args):
             print('AUC: {:.4f}\np@100: {:.4f}, p@200: {:.4f}, p@300: {:.4f}, p@500: {:.4f}\n'.format(
                 perf['pr_auc'], perf['p@100'], perf['p@200'], perf['p@300'], perf['p@500']))
 
-    elif config['mode'] == 'infer':
+    elif config['mode'] == 'show-dist':
         trainer = load_saved_model(config, prior_mus, device)
+        # get posterior latent code
         trainer.collect_codes('train')
         trainer.collect_codes('val')
+    elif config['mode'] == 'show-graph':
+        trainer = load_saved_model(config, prior_mus, device)
+
+
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--config', type=str)
-    parser.add_argument('--mode', type=str, choices=['train', 'test', 'infer'])
+    parser.add_argument('--mode', type=str, choices=['train', 'test', 'show-dist', 'show-graph'])
     parser.add_argument('--show_example', action='store_true', help='Show an example')
     args = parser.parse_args()
     main(args)

@@ -164,7 +164,7 @@ class BagREDataset(Dataset):
                 if pair_name in self.priors:
                     priors = np.asarray(self.priors[pair_name])
                     self.data.append([labels, pair_name + ' ### ' + bag_label[0], len(bag_sents), bag_ent_offsets,
-                                      bag_seqs, bag_seqs_target, pos1, pos2, sent_len, bag_mentions, priors])
+                                      bag_seqs, bag_seqs_target, pos1, pos2, sent_len, bag_mentions, priors, bag_sents])
                 else:
                     priors = np.zeros((self.priors_dim,))
                     # if self.mode == 'train' or self.mode == 'train-test':
@@ -172,11 +172,11 @@ class BagREDataset(Dataset):
                     #     continue
                     # else:
                     self.data.append([labels, pair_name + ' ### ' + bag_label[0], len(bag_sents), bag_ent_offsets,
-                                      bag_seqs, bag_seqs_target, pos1, pos2, sent_len, bag_mentions, priors])
+                                      bag_seqs, bag_seqs_target, pos1, pos2, sent_len, bag_mentions, priors, bag_sents])
             else:
                 priors = None
                 self.data.append([labels, pair_name + ' ### ' + bag_label[0], len(bag_sents), bag_ent_offsets,
-                                  bag_seqs, bag_seqs_target, pos1, pos2, sent_len, bag_mentions, priors])
+                                  bag_seqs, bag_seqs_target, pos1, pos2, sent_len, bag_mentions, priors, bag_sents])
 
         print('Skipped: {}'.format(skipped))
 
