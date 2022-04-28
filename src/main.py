@@ -28,14 +28,14 @@ def load_priors(file):
 
 def load_data(word_vocab, prior_mus, config, pos_vocab=None, mode='train'):
     train_data_ = BagREDataset(
-                               config['train_data'],
-                               config['relations_file'],
-                               word_vocab,
-                               prior_mus,
-                               pos_vocab=pos_vocab,
-                               max_sent_length=config['max_sent_len'],
-                               max_vocab=config['max_vocab_size'],
-                               max_bag_size=config['bag_size'], mode=mode)
+        config['train_data'],
+        config['relations_file'],
+        word_vocab,
+        prior_mus,
+        pos_vocab=pos_vocab,
+        max_sent_length=config['max_sent_len'],
+        max_vocab=config['max_vocab_size'],
+        max_bag_size=config['bag_size'], mode=mode)
     print(len(train_data_))
     train_loader_ = DataLoader(dataset=train_data_,
                                batch_size=config['batch_size'],
@@ -43,13 +43,13 @@ def load_data(word_vocab, prior_mus, config, pos_vocab=None, mode='train'):
                                collate_fn=BagCollates(),
                                num_workers=0)
     val_data_ = BagREDataset(
-                             config['val_data'],
-                             config['relations_file'],
-                             train_data_.word_vocab if mode == 'train' else word_vocab,
-                             prior_mus,
-                             pos_vocab=train_data_.pos_vocab if mode == 'train' else pos_vocab,
-                             max_sent_length=train_data_.max_sent_length, max_bag_size=0,
-                             mode='val')
+        config['val_data'],
+        config['relations_file'],
+        train_data_.word_vocab if mode == 'train' else word_vocab,
+        prior_mus,
+        pos_vocab=train_data_.pos_vocab if mode == 'train' else pos_vocab,
+        max_sent_length=train_data_.max_sent_length, max_bag_size=0,
+        mode='val')
     print(len(val_data_))
     val_loader_ = DataLoader(dataset=val_data_,
                              batch_size=config['batch_size'],
@@ -58,13 +58,13 @@ def load_data(word_vocab, prior_mus, config, pos_vocab=None, mode='train'):
                              num_workers=0)
 
     test_data_ = BagREDataset(
-                              config['test_data'],
-                              config['relations_file'],
-                              train_data_.word_vocab if mode == 'train' else word_vocab,
-                              prior_mus,
-                              pos_vocab=train_data_.pos_vocab if mode == 'train' else pos_vocab,
-                              max_sent_length=train_data_.max_sent_length, max_bag_size=0,
-                              mode='test')
+        config['test_data'],
+        config['relations_file'],
+        train_data_.word_vocab if mode == 'train' else word_vocab,
+        prior_mus,
+        pos_vocab=train_data_.pos_vocab if mode == 'train' else pos_vocab,
+        max_sent_length=train_data_.max_sent_length, max_bag_size=0,
+        mode='test')
     print(len(test_data_))
     test_loader_ = DataLoader(dataset=test_data_,
                               batch_size=config['batch_size'],
@@ -158,11 +158,16 @@ def main(args):
             print('AUC: {:.4f}\np@100: {:.4f}, p@200: {:.4f}, p@300: {:.4f}, p@500: {:.4f}\n'.format(
                 perf['pr_auc'], perf['p@100'], perf['p@200'], perf['p@300'], perf['p@500']))
 
+    elif config['mode'] == 'infer':
+        trainer = load_saved_model(config, prior_mus, device)
+        trainer.collect_codes('train')
+        trainer.collect_codes('val')
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--config', type=str)
-    parser.add_argument('--mode', type=str, choices=['train', 'test'])
+    parser.add_argument('--mode', type=str, choices=['train', 'test', 'infer'])
     parser.add_argument('--show_example', action='store_true', help='Show an example')
     args = parser.parse_args()
     main(args)
