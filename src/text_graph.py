@@ -154,7 +154,7 @@ class TextGraph(nn.Module):
         output = torch.relu(output)
         output = torch.dropout(output, self.dropout, self.training)
         output = self.sentence_attention(output, bag_size, self.r_embed.embedding.weight.data)
-        output = torch.dropout(output, self.dropout, self.training)
+        # output = torch.dropout(output, self.dropout, self.training)
         output = self.dim2rel(output)
         output = output.diagonal(dim1=1, dim2=2)
         return output
