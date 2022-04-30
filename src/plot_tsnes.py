@@ -218,7 +218,7 @@ if __name__ == '__main__':
     parser.add_argument('--dim', type=int, default=64)
     parser.add_argument('--priors', type=str)
     parser.add_argument('--posteriors', type=str)
-    parser.add_argument('--dataset', choices=['nyt10', 'wikidistant'])
+    parser.add_argument('--dataset', choices=['nyt10', 'wiki_distant'])
     parser.add_argument('--filename', type=str, default='../data/LANG/wikidistant/wiki_distant_train.txt')
     parser.add_argument('--legend', action='store_true')
     parser.add_argument('--split', type=str)

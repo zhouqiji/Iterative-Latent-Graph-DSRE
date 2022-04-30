@@ -65,7 +65,7 @@ class TextGraph(nn.Module):
                                                 out_features=len(vocabs['r_vocab']))
         self.dim2rel.weight = self.r_embed.embedding.weight  # tie weight
 
-        # self.linear_hidden = nn.Linear(self.graph_out_dim, self.graph_out_dim)
+        self.linear_hidden = nn.Linear(self.graph_out_dim, self.graph_out_dim)
         # self.linear_out = nn.Linear(self.graph_out_dim, self.output_rel_dim)
         self.linear_out = nn.Linear(self.graph_out_dim, config['rel_embed_dim'])
 
@@ -81,7 +81,7 @@ class TextGraph(nn.Module):
             self.encoder = gcn_module(nfeat=self.enc_dim,
                                       nhid=self.graph_hid_dim,
                                       nclass=self.graph_out_dim,
-                                      graph_hops=config['graph_hops'],
+                                      graph_hops=1,
                                       dropout=self.dropout,
                                       batch_norm=self.graph_batch_norm)
         elif self.graph_module == 'sgc':

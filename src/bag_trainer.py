@@ -7,6 +7,8 @@ import numpy as np
 import json
 
 from modules.trainer import BaseTrainer
+import matplotlib.pyplot as plt
+import matplotlib.ticker as ticker
 
 torch.set_printoptions(profile='full')
 
@@ -255,3 +257,59 @@ class Trainer(BaseTrainer):
 
         with open(os.path.join(self.config['model_folder'], 'latent_mu_codes_' + mode + '.json'), 'w') as outfile:
             json.dump(codes, outfile)
+
+    def collect_random_case(self, max_len):
+        self.model = self.model.eval()
+        with torch.no_grad():
+            samples = self.iterators['test']
+            random_id = np.random.randint(len(samples))
+            for batch in samples:
+                for keys in batch.keys():
+                    if keys != 'bag_names' and keys != 'txt':
+                        batch[keys] = batch[keys].to(self.device)
+
+                _, _, _, _, _, _, saved_graphs = self.model(batch)
+
+                sample_id = np.random.randint(len(batch['txt']))
+
+                input_sent = batch['txt'][sample_id]
+                sent_len = len(input_sent.split(' '))
+                if sent_len >= max_len:
+                    continue
+                else:
+
+                    a, b, c = saved_graphs
+                    init_graph = np.zeros([sent_len, sent_len])
+                    reco_graph = np.zeros([sent_len, sent_len])
+                    optim_graph = np.zeros([sent_len, sent_len])
+
+                    for row in range(sent_len):
+                        init_graph[row] = a[sample_id].cpu()[row].numpy()[:sent_len]
+
+                    for row in range(sent_len):
+                        reco_graph[row] = b[sample_id].cpu()[row].numpy()[:sent_len]
+
+                    for row in range(sent_len):
+                        optim_graph[row] = c[sample_id].cpu()[row].numpy()[:sent_len]
+
+                    show_latent_graph(input_sent, init_graph, 'init_graph')
+                    show_latent_graph(input_sent, reco_graph, 'reco_graph')
+                    show_latent_graph(input_sent, optim_graph, 'optim_graph')
+                    break
+
+
+def show_latent_graph(input_sentence, graph, name):
+    # set up figure with colorbar
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    cax = ax.matshow(graph, cmap='Blues')
+    fig.colorbar(cax)
+
+    # set up axes
+    ax.set_xticklabels([''] + input_sentence.split(' '), rotation=90)
+    ax.set_yticklabels([''] + input_sentence.split(' '))
+
+    # Show label at every tick
+    ax.xaxis.set_major_locator(ticker.MultipleLocator(1))
+    ax.yaxis.set_major_locator(ticker.MultipleLocator(1))
+    plt.savefig('../plots/' + name + '.png')

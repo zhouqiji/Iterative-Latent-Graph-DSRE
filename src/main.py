@@ -11,6 +11,8 @@ from bag_trainer import Trainer
 from graph_net import GraphNet as Target_Model
 
 
+
+
 def set_seed(seed):
     np.random.seed(seed)
     random.seed(seed)
@@ -165,8 +167,8 @@ def main(args):
         trainer.collect_codes('val')
     elif config['mode'] == 'show-graph':
         trainer = load_saved_model(config, prior_mus, device)
-
-
+        # get the random case from test set
+        trainer.collect_random_case(20)
 
 
 if __name__ == "__main__":
