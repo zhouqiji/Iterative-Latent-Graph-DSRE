@@ -168,7 +168,7 @@ def main(args):
     elif config['mode'] == 'show-graph':
         trainer = load_saved_model(config, prior_mus, device)
         # get the random case from test set
-        trainer.collect_random_case(17)
+        trainer.collect_random_case(20)
 
 
 if __name__ == "__main__":

@@ -8,6 +8,9 @@ import json
 
 from modules.trainer import BaseTrainer
 import matplotlib.pyplot as plt
+
+
+plt.switch_backend('agg')
 import matplotlib.ticker as ticker
 
 torch.set_printoptions(profile='full')
@@ -299,22 +302,24 @@ class Trainer(BaseTrainer):
                     show_latent_graph(input_sent, init_graph, 'init_graph_' + mention_ids)
                     show_latent_graph(input_sent, reco_graph, 'reco_graph_' + mention_ids)
                     show_latent_graph(input_sent, optim_graph, 'optim_graph_' + mention_ids)
-                    # break
+                    break
 
 
 def show_latent_graph(input_sentence, graph, name):
     # set up figure with colorbar
-    fig = plt.figure()
-    ax = fig.add_subplot(111)
+    sent_list = input_sentence.split(' ')
+    fig, ax = plt.subplots()
     cax = ax.matshow(graph, cmap='Blues')
     fig.colorbar(cax)
 
-    # set up axes
-    ax.set_xticklabels([''] + input_sentence.split(' '), rotation=90)
-    ax.set_yticklabels([''] + input_sentence.split(' '))
+    tick_spacing = 1
+    ax.xaxis.set_major_locator(ticker.MultipleLocator(tick_spacing))
+    ax.yaxis.set_major_locator(ticker.MultipleLocator(tick_spacing))
 
-    # Show label at every tick
-    ax.xaxis.set_major_locator(ticker.MultipleLocator(1))
-    ax.yaxis.set_major_locator(ticker.MultipleLocator(1))
+    # set up axes
+    ax.set_xticklabels([''] + sent_list, rotation=90)
+    ax.set_yticklabels([''] + sent_list)
+
+    fig.tight_layout()
     plt.savefig('../plots/' + name + '.png')
     plt.close(fig)
