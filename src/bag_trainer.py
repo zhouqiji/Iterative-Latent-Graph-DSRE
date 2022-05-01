@@ -312,9 +312,8 @@ def show_latent_graph(input_sentence, graph, name):
     cax = ax.matshow(graph, cmap='Blues')
     fig.colorbar(cax)
 
-    tick_spacing = 1
-    ax.xaxis.set_major_locator(ticker.MultipleLocator(tick_spacing))
-    ax.yaxis.set_major_locator(ticker.MultipleLocator(tick_spacing))
+    ax.xaxis.set_major_locator(ticker.MultipleLocator(1))
+    ax.yaxis.set_major_locator(ticker.MultipleLocator(1))
 
     # set up axes
     ax.set_xticklabels([''] + sent_list, rotation=90)
