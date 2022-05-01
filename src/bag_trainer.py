@@ -271,7 +271,11 @@ class Trainer(BaseTrainer):
                 _, _, _, _, _, _, saved_graphs = self.model(batch)
 
                 sample_id = np.random.randint(len(batch['txt']))
+                # sample_id = 31
 
+                mention_ids = batch['mentions'][sample_id].tolist()
+                mention_ids = list(map(str, mention_ids))
+                mention_ids = "_".join(mention_ids)
                 input_sent = batch['txt'][sample_id]
                 sent_len = len(input_sent.split(' '))
                 if sent_len >= max_len:
@@ -292,10 +296,10 @@ class Trainer(BaseTrainer):
                     for row in range(sent_len):
                         optim_graph[row] = c[sample_id].cpu()[row].numpy()[:sent_len]
 
-                    show_latent_graph(input_sent, init_graph, 'init_graph')
-                    show_latent_graph(input_sent, reco_graph, 'reco_graph')
-                    show_latent_graph(input_sent, optim_graph, 'optim_graph')
-                    break
+                    show_latent_graph(input_sent, init_graph, 'init_graph_' + mention_ids)
+                    show_latent_graph(input_sent, reco_graph, 'reco_graph_' + mention_ids)
+                    show_latent_graph(input_sent, optim_graph, 'optim_graph_' + mention_ids)
+                    # break
 
 
 def show_latent_graph(input_sentence, graph, name):
@@ -313,3 +317,4 @@ def show_latent_graph(input_sentence, graph, name):
     ax.xaxis.set_major_locator(ticker.MultipleLocator(1))
     ax.yaxis.set_major_locator(ticker.MultipleLocator(1))
     plt.savefig('../plots/' + name + '.png')
+    plt.close(fig)
