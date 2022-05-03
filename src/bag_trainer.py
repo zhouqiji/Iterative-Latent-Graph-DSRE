@@ -264,7 +264,7 @@ class Trainer(BaseTrainer):
     def collect_random_case(self, max_len):
         self.model = self.model.eval()
         with torch.no_grad():
-            samples = self.iterators['val']
+            samples = self.iterators['test']
             random_id = np.random.randint(len(samples))
             for batch in samples:
                 for keys in batch.keys():
