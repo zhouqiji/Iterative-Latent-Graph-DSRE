@@ -302,7 +302,6 @@ class Trainer(BaseTrainer):
                     show_latent_graph(input_sent, init_graph, 'init_graph_' + mention_ids)
                     show_latent_graph(input_sent, reco_graph, 'reco_graph_' + mention_ids)
                     show_latent_graph(input_sent, optim_graph, 'optim_graph_' + mention_ids)
-                    break
 
 
 def show_latent_graph(input_sentence, graph, name):
