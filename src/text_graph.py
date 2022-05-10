@@ -140,11 +140,10 @@ class TextGraph(nn.Module):
             return raw_adj, adj
 
     def compute_output(self, output_vec, bag_size):
-
         output = self.graph_maxpool(output_vec.transpose(-1, -2))
-        # output = self.linear_hidden(output)
-        # output = torch.relu(output)
-        # output = torch.dropout(output, self.dropout, self.training)
+        output = self.linear_hidden(output)
+        output = torch.relu(output)
+        #output = torch.dropout(output, self.dropout, self.training)
         output = pad_sequence(torch.split(output, bag_size.tolist(), dim=0),
                               batch_first=True,
                               padding_value=0)
@@ -152,7 +151,7 @@ class TextGraph(nn.Module):
         # output = output.sum(-2).unsqueeze(-2)
         output = self.linear_out(output)
         output = torch.relu(output)
-        output = torch.dropout(output, self.dropout, self.training)
+        #output = torch.dropout(output, self.dropout, self.training)
         output = self.sentence_attention(output, bag_size, self.r_embed.embedding.weight.data)
         output = torch.dropout(output, self.dropout, self.training)
         output = self.dim2rel(output)
