@@ -54,7 +54,7 @@ freeze_pretrained: False
 # Iterative Graph config
 graph_dropout: 0.5
 bignn: False
-graph_module: 'sgc'  # gcn or sgc
+graph_module: 'sgc'  # 
 graph_type: 'dynamic'
 graph_learn: True
 graph_batch_norm: True
@@ -68,7 +68,7 @@ degree_ratio: 0.01 # GL: 0.01!
 sparsity_ratio: 0.3 # GL: 0.3!
 graph_learn_ratio: 0 # 0
 input_graph_knn_size: 25 #TODO :Tuning
-graph_learn_hidden_size: 70 #
+graph_learn_hidden_size: 70 
 graph_learn_epsilon: 0.3 # GL: 0.3, IGL: 0.3!
 graph_learn_topk: null #
 graph_learn_num_pers: 12 # weighted_cosine: IGL: 12! #
