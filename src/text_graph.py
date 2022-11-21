@@ -58,6 +58,8 @@ class TextGraph(nn.Module):
                                        device=self.device,
                                        action='sum')
 
+        self.ctx_linear = nn.Linear(config['enc_dim'] * 3, config['enc_dim'])
+
         self.r_embed = EmbedLayer(num_embeddings=len(vocabs['r_vocab']),
                                   embedding_dim=config['rel_embed_dim'])
         self.sentence_attention = SelectiveAttention(device=self.device)
@@ -66,7 +68,6 @@ class TextGraph(nn.Module):
         self.dim2rel.weight = self.r_embed.embedding.weight  # tie weight
 
         self.linear_hidden = nn.Linear(self.graph_out_dim, self.graph_out_dim)
-        # self.linear_out = nn.Linear(self.graph_out_dim, self.output_rel_dim)
         self.linear_out = nn.Linear(self.graph_out_dim, config['rel_embed_dim'])
 
         if self.config['reconstruction']:
@@ -143,15 +144,13 @@ class TextGraph(nn.Module):
         output = self.graph_maxpool(output_vec.transpose(-1, -2))
         output = self.linear_hidden(output)
         output = torch.relu(output)
-        #output = torch.dropout(output, self.dropout, self.training)
+        # output = torch.dropout(output, self.dropout, self.training)
         output = pad_sequence(torch.split(output, bag_size.tolist(), dim=0),
                               batch_first=True,
                               padding_value=0)
-        # output = self.graph_maxpool(output.transpose(-1, -2))
-        # output = output.sum(-2).unsqueeze(-2)
         output = self.linear_out(output)
         output = torch.relu(output)
-        #output = torch.dropout(output, self.dropout, self.training)
+        # output = torch.dropout(output, self.dropout, self.training)
         output = self.sentence_attention(output, bag_size, self.r_embed.embedding.weight.data)
         output = torch.dropout(output, self.dropout, self.training)
         output = self.dim2rel(output)
@@ -383,7 +382,7 @@ class TextGraph(nn.Module):
         norm = (cur_adj.size(-1) * cur_adj.size(-1)) / (cur_adj.size(-1) * cur_adj.size(-1) - 2 * mean_adj_sum)
         #
         # cost = norm * F.binary_cross_entropy_with_logits(init_adj, cur_adj, pos_weight=pos_weight.detach())
-        cost = F.binary_cross_entropy(init_adj, cur_adj) / cur_adj.size(0)
+        cost = norm * F.binary_cross_entropy(init_adj, cur_adj) / cur_adj.size(0)
         return cost
 
     def forward(self, raw_context_vec, batch):
@@ -392,8 +391,14 @@ class TextGraph(nn.Module):
         raw_context_vec, context_vec, context_mask, enc_hidden, cell_state, init_adj = self.prepare_init_graph(
             raw_context_vec, context_len)
 
-        arg1, arg2 = self.merge_tokens(context_vec, mentions)  # contextualised representations of argument
-        context_vec = context_vec + arg1.unsqueeze(dim=-2) + arg2.unsqueeze(dim=-2)
+        # arg1, arg2 = self.merge_tokens(context_vec, mentions)  # contextualised representations of argument
+        arg1, arg2 = self.merge_tokens(context_vec,
+                                       mentions)  # contextualised representations of argument
+        context_vec = torch.cat([context_vec, arg1.unsqueeze(-2).repeat(1, context_vec.size(-2), 1),
+                                 arg2.unsqueeze(-2).repeat(1, context_vec.size(-2), 1)], dim=-1)
+        # TODO: Test
+        context_vec = self.ctx_linear(context_vec)
+        context_vec = F.dropout(torch.relu(context_vec), self.dropout, self.training)
 
         save_init_adj = init_adj
 
@@ -418,8 +423,10 @@ class TextGraph(nn.Module):
                 mu_, logvar_ = mu_.sum(-2), logvar_.sum(-2)
 
                 mu_diff = (prior_mus_expanded - mu_)
+
+                log_exp = logvar_.exp().pow(2)
                 kld = (-0.5 * torch.mean(torch.sum(
-                    1 + 2 * logvar_ - mu_diff.pow(2) - logvar_.exp().pow(2), -1
+                    1 + 2 * logvar_ - mu_diff.pow(2) - log_exp, -1
                 ))) / node_num
             else:
                 mu_ = mu_.masked_fill(~node_mask.bool().unsqueeze(-1), 0)
@@ -431,7 +438,7 @@ class TextGraph(nn.Module):
                     1 + 2 * logvar_ - mu_.pow(2) - logvar_.exp().pow(2), -1
                 ))) / node_num
         else:
-            mu_ = torch.zeros((enc_hidden.size(0), self.config['latent_dim'])).to(self.device)
+            mu_ = torch.zeros((raw_node_vec.size(0), self.config['latent_dim'])).to(self.device)
             kld = torch.zeros((1,)).to(self.device)
 
         save_reco_adj = init_adj

@@ -47,6 +47,6 @@ class InnerProductDecoder(nn.Module):
     def forward(self, z, node_mask):
         z = F.dropout(z, self.dropout, training=self.training)
         adj = self.act(torch.bmm(z, z.transpose(-1, -2)))
-        adj = torch.nan_to_num(adj)
-        adj = torch.where(torch.isinf(adj), torch.full_like(adj, 0), adj)
+        # adj = torch.nan_to_num(adj)
+        # adj = torch.where(torch.isinf(adj), torch.full_like(adj, 0), adj)
         return adj
